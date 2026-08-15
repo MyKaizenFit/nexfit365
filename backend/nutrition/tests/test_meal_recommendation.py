@@ -398,6 +398,43 @@ class TestRankSlotOptionLists:
         )
         assert ranked['b'] == []
 
+    def test_does_not_reuse_the_same_option_object_across_slots(self):
+        breakfast = {'id': 'b1', 'name': 'Tostadas', 'calories': 350, 'protein': 20, 'carbs': 40, 'fat': 10, 'recipeId': 'toast'}
+        lunch = {'id': 'l1', 'name': 'Pollo', 'calories': 520, 'protein': 45, 'carbs': 30, 'fat': 18, 'recipeId': 'chicken'}
+        dinner = {'id': 'd1', 'name': 'Merluza', 'calories': 410, 'protein': 38, 'carbs': 22, 'fat': 14, 'recipeId': 'hake'}
+        shared_list = [breakfast]
+        ranked = rank_slot_option_lists(
+            date='2026-08-14',
+            slots=[
+                SlotInfo('b', 'breakfast', 1, calories=400),
+                SlotInfo('l', 'lunch', 2, calories=600),
+                SlotInfo('d', 'dinner', 3, calories=500),
+            ],
+            logs=[],
+            daily_goals=NutrientVector(1700, 120, 170, 55),
+            options_by_slot_id={
+                'b': shared_list,
+                'l': [lunch],
+                'd': [dinner],
+            },
+        )
+        assert ranked['b'] is not ranked['l']
+        assert ranked['b'] is not ranked['d']
+        assert ranked['l'] is not ranked['d']
+        assert ranked['b'][0] is not breakfast
+        assert ranked['l'][0] is not lunch
+        assert ranked['d'][0] is not dinner
+        assert ranked['b'][0] is not ranked['l'][0]
+        assert ranked['b'][0]['recipeId'] == 'toast'
+        assert ranked['l'][0]['recipeId'] == 'chicken'
+        assert ranked['d'][0]['recipeId'] == 'hake'
+        ranked['b'][0]['calories'] = 1
+        assert breakfast['calories'] == 350
+        assert ranked['l'][0]['calories'] == 520
+        assert all(opt.get('is_recommended') is True for opt in (
+            ranked['b'][0], ranked['l'][0], ranked['d'][0],
+        ))
+
 
 # ---------------------------------------------------------------------------
 # Integration — endpoint
@@ -712,6 +749,46 @@ def three_meal_new_account_plan(db, user):
     return {'plan': plan, 'slots': slots}
 
 
+@pytest.fixture
+def suggested_recipes_new_account_plan(db, user):
+    """Plan de onboarding real: suggested_recipes M2M, sin PlanMealRecipe."""
+    plan = NutritionPlan.objects.create(
+        name='Plan onboarding sugeridas',
+        user=user,
+        daily_calories=1700,
+        protein_grams=120,
+        carbs_grams=170,
+        fat_grams=55,
+        is_active=True,
+        start_date=date(2026, 1, 1),
+    )
+    slots = []
+    for index, (name, meal_type) in enumerate(
+        [('Desayuno', 'breakfast'), ('Comida', 'lunch'), ('Cena', 'dinner')],
+        start=1,
+    ):
+        meal = PlanMeal.objects.create(
+            plan=plan,
+            name=name,
+            meal_type=meal_type,
+            order_index=index,
+            calories=567,
+            protein=40,
+            carbs=55,
+            fat=18,
+            day_of_week=None,
+        )
+        heavy = _make_recipe(
+            f'{name} pesada', 700, 40, 70, 25, meal_types=[meal_type],
+        )
+        light = _make_recipe(
+            f'{name} ligera', 350, 30, 30, 10, meal_types=[meal_type],
+        )
+        meal.suggested_recipes.set([heavy, light])
+        slots.append({'meal': meal, 'heavy': heavy, 'light': light})
+    return {'plan': plan, 'slots': slots}
+
+
 @pytest.mark.django_db
 class TestPlanMealsInitialRecommendation:
     def test_options_by_meal_id_keys_match_slot_ids(
@@ -1003,6 +1080,38 @@ class TestPlanMealsInitialRecommendation:
             assert option['protein'] == other['protein']
             assert option['carbs'] == other['carbs']
             assert option['fat'] == other['fat']
+
+    def test_suggested_recipes_onboarding_matches_cambiar_and_keeps_recipe_kcal(
+        self, auth_client, suggested_recipes_new_account_plan,
+    ):
+        date_str = '2026-08-14'
+        plan_response = auth_client.get(
+            '/api/nutrition/plan-meals-for-selection/',
+            {'date': date_str},
+        )
+        assert plan_response.status_code == 200
+        preview_calories = []
+        for item in suggested_recipes_new_account_plan['slots']:
+            slot_id = str(item['meal'].id)
+            options = plan_response.data['options_by_meal_id'][slot_id]
+            initial = options[0]
+            reco = auth_client.get(
+                '/api/nutrition/meal-alternatives-recommendation/',
+                {'date': date_str, 'plan_meal_id': slot_id},
+            )
+            assert reco.status_code == 200
+            top = reco.data['alternatives'][0]
+            assert str(initial['recipeId']) == str(top['recipeId'])
+            assert initial['calories'] == top['calories']
+            assert initial['protein'] == top['protein']
+            assert initial['carbs'] == top['carbs']
+            assert initial['fat'] == top['fat']
+            assert initial.get('is_recommended') is True
+            assert initial['calories'] in (350, 700)
+            assert initial['calories'] != 567
+            preview_calories.append(int(initial['calories']))
+        assert MealLog.objects.count() == 0
+        assert set(preview_calories) <= {350, 700}
 
     def test_slots_do_not_reuse_the_same_option(self, auth_client, three_meal_new_account_plan):
         response = auth_client.get(

@@ -571,10 +571,10 @@ def plan_meals_for_selection(request):
             meal_options = []
 
             # Prefer in-memory related caches (Prefetch); avoid .exists()/.order_by() bypass.
+            meal_recipe_ratio = plan_target_ratio(user_plan)
             meal_recipes = list(meal.meal_recipes.all())
             if meal_recipes:
                 used_recipe_ids = set()
-                meal_recipe_ratio = plan_target_ratio(user_plan)
                 for meal_recipe in meal_recipes:
                     recipe = meal_recipe.recipe
                     if recipe.id in used_recipe_ids:
@@ -585,17 +585,25 @@ def plan_meals_for_selection(request):
                         meal,
                         meal_recipe_scaled_macros(meal_recipe, meal_recipe_ratio),
                     ))
-            # Si hay recetas sugeridas, crear una opción por cada receta (sin límite)
+            # Mismo payload que Cambiar: macros de receta × ratio, no personalize_recipe al slot.
             else:
                 suggested_recipes = list(meal.suggested_recipes.all())
                 if suggested_recipes:
                     used_recipe_ids = set()
                     for recipe in suggested_recipes:
-                        selected_recipe = recipe
-                        if selected_recipe.id in used_recipe_ids:
+                        if recipe.id in used_recipe_ids:
                             continue
-                        used_recipe_ids.add(selected_recipe.id)
-                        meal_options.append(build_recipe_option(selected_recipe, meal_type, meal, meal.id))
+                        used_recipe_ids.add(recipe.id)
+                        meal_options.append(recipe_option_payload(
+                            recipe,
+                            meal,
+                            {
+                                'calories': int(round(float(recipe.calories or 0) * meal_recipe_ratio)),
+                                'protein': round(float(recipe.protein or 0) * meal_recipe_ratio, 1),
+                                'carbs': round(float(recipe.carbs or 0) * meal_recipe_ratio, 1),
+                                'fat': round(float(recipe.fat or 0) * meal_recipe_ratio, 1),
+                            },
+                        ))
                 else:
                     # Si no hay recetas, crear una opción genérica basada en la comida
                     personalized = personalize_meal(meal, meal_type)
