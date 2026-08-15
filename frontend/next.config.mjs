@@ -14,9 +14,11 @@ const nextConfig = {
 
   async redirects() {
     return [
-      // ponytail: Bienestar is temporarily hidden; remove these redirects to restore /bienestar and /wellness.
+      // ponytail: Bienestar/Descanso are temporarily hidden; remove these redirects to restore them.
       { source: '/bienestar', destination: '/dashboard', permanent: false },
       { source: '/wellness', destination: '/dashboard', permanent: false },
+      { source: '/descanso', destination: '/dashboard', permanent: false },
+      { source: '/rest-wellness', destination: '/dashboard', permanent: false },
     ]
   },
 
