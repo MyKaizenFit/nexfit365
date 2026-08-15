@@ -17,6 +17,8 @@ describe('appPath', () => {
 
     expect(appPath('/dashboard')).toBe('/dashboard')
     expect(appPath('/auth?stale=1')).toBe('/auth?stale=1')
+    expect(appPath('/icono.png')).toBe('/icono.png')
+    expect(appPath('/NexFit.png')).toBe('/NexFit.png')
     expect(isAppPath('/dashboard', '/dashboard')).toBe(true)
   })
 
@@ -33,6 +35,8 @@ describe('appPath', () => {
       'https://nexfit365.dpdns.org/dashboard'
     )
     expect(appPath('/favicon.ico')).toBe('/nexfit/favicon.ico')
+    expect(appPath('/icono.png')).toBe('/nexfit/icono.png')
+    expect(appPath('/NexFit.png')).toBe('/nexfit/NexFit.png')
     expect(appPath('/icono.png?v=3')).toBe('/nexfit/icono.png?v=3')
     expect(appPath('/apple-touch-icon.png?v=3')).toBe(
       '/nexfit/apple-touch-icon.png?v=3'

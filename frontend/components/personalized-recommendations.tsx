@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react'
 import Image from 'next/image'
+import { appPath } from '@/lib/app-path'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -107,7 +108,7 @@ export function PersonalizedRecommendations({ userProfile: externalProfile, onCo
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
         <CardHeader className="relative z-10 text-center space-y-4 py-8">
           <div className="mx-auto w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center">
-            <Image src="/icono.png" alt="NEXFIT" width={64} height={64} quality={100} />
+            <Image src={appPath('/icono.png')} alt="NEXFIT" width={64} height={64} quality={100} />
           </div>
           <CardTitle className="text-3xl font-bold flex items-center justify-center gap-3">
             <Sparkles className="w-8 h-8" />

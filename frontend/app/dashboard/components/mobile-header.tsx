@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
+import { appPath } from "@/lib/app-path"
 import { useState } from "react"
 import { NotificationsDropdown } from "./notifications-dropdown"
 import { navigateToDashboardSection } from "@/lib/dashboard-navigation"
@@ -76,7 +77,7 @@ export function MobileHeader({ notifications, onNotificationClick, selectedSecti
         {/* Left side - Logo/Title */}
         <div className="responsive-flex items-center gap-3 min-w-0 flex-1 pl-2">
           <div className="flex aspect-square size-9 sm:size-10 items-center justify-center rounded-xl flex-shrink-0 overflow-hidden">
-            <Image src="/icono.png" alt="NEXFIT" width={40} height={40} quality={100} />
+            <Image src={appPath('/icono.png')} alt="NEXFIT" width={40} height={40} quality={100} />
           </div>
           <div className="min-w-0 flex-1">
             <h1 className="text-lg sm:text-xl font-semibold responsive-text">

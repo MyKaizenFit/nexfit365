@@ -92,7 +92,7 @@ export default function HomePage() {
       <div className="min-h-screen bg-background dark:bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="mx-auto w-24 h-24 rounded-3xl overflow-hidden flex items-center justify-center mb-8 animate-pulse shadow-2xl">
-            <Image src="/icono.png" alt="NEXFIT" width={96} height={96} quality={100} priority />
+            <Image src={appPath('/icono.png')} alt="NEXFIT" width={96} height={96} quality={100} priority />
           </div>
           <h1 className="text-3xl font-bold mb-3 text-foreground">Redirigiendo...</h1>
           <p className="text-muted-foreground">Te estamos llevando a Inicio.</p>
@@ -410,7 +410,7 @@ export default function HomePage() {
     <div className="min-h-screen bg-background dark:bg-background flex items-center justify-center">
       <div className="text-center">
         <div className="mx-auto w-24 h-24 rounded-3xl overflow-hidden flex items-center justify-center mb-8 animate-pulse shadow-2xl">
-          <Image src="/icono.png" alt="NEXFIT" width={96} height={96} quality={100} priority />
+          <Image src={appPath('/icono.png')} alt="NEXFIT" width={96} height={96} quality={100} priority />
         </div>
         <h1 className="text-4xl font-bold mb-4 text-foreground">
           Cargando <span className="text-orange-500">NEX</span><span className="text-muted-foreground">FIT</span>...

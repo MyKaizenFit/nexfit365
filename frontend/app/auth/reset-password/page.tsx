@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { getAuthService } from "@/lib/auth-service"
+import { appPath } from "@/lib/app-path"
 
 function ResetPasswordContent() {
   const router = useRouter()
@@ -62,7 +63,7 @@ function ResetPasswordContent() {
       <Card className="w-full max-w-md relative z-10 border shadow-2xl bg-card/95 backdrop-blur-sm">
         <CardHeader className="text-center space-y-5 pb-8 pt-10">
           <div className="flex items-center justify-center">
-            <Image src="/NexFit.png" alt="Logo de NEXFIT" width={220} height={66} quality={100} priority />
+            <Image src={appPath('/NexFit.png')} alt="Logo de NEXFIT" width={220} height={66} quality={100} priority />
           </div>
           <div className="mx-auto w-14 h-14 bg-gradient-to-br from-rose-400 to-pink-500 rounded-2xl flex items-center justify-center">
             {success ? <CheckCircle className="w-7 h-7 text-white" /> : <Lock className="w-7 h-7 text-white" />}

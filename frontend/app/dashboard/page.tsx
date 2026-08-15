@@ -576,7 +576,7 @@ function DashboardContent() {
             <SidebarHeader>
               <div className="flex items-center gap-3 px-4 py-3">
                 <div className="flex aspect-square size-10 items-center justify-center rounded-xl flex-shrink-0 overflow-hidden">
-                  <Image src="/icono.png" alt="NEXFIT" width={40} height={40} quality={100} />
+                  <Image src={appPath('/icono.png')} alt="NEXFIT" width={40} height={40} quality={100} />
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight min-w-0">
                   <div className="flex items-center">

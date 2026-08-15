@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 
 import { useAuth } from "@/contexts/auth-context"
 import { useRouter, useSearchParams } from "next/navigation"
+import { appPath } from "@/lib/app-path"
 
 interface FormData {
   email: string
@@ -293,7 +294,7 @@ function AuthPageContent() {
       <Card className="w-full max-w-md relative z-10 border shadow-2xl bg-card/95 backdrop-blur-sm animate-in slide-in-from-bottom-8 duration-700">
         <CardHeader className="text-center space-y-6 pb-8 pt-10">
           <div className="flex items-center justify-center">
-            <Image src="/NexFit.png" alt="Logo de NEXFIT" width={240} height={72} quality={100} style={{ width: 'auto', height: 'auto' }} priority />
+            <Image src={appPath('/NexFit.png')} alt="Logo de NEXFIT" width={240} height={72} quality={100} style={{ width: 'auto', height: 'auto' }} priority />
           </div>
           <CardDescription className="text-gray-600 text-lg pt-2">
             {isLogin ? "¡Hola de nuevo! 👋 Nos alegra verte de vuelta" : "¡Únete a nosotros! 🎉 Comienza tu transformación hoy"}
