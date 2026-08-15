@@ -1,6 +1,8 @@
 // lib/api.ts
 // Configuración base de la API y endpoints
 
+import { getCsrfToken } from './csrf-cookie'
+
 // No importar authService aquí para evitar importación circular
 // Se importará dinámicamente cuando sea necesario
 
@@ -182,14 +184,9 @@ export const getAuthHeaders = (token?: string): Record<string, string> => {
 
   if (typeof window !== 'undefined') {
     try {
-      // Prefer the last csrfToken if duplicates exist (stale host-only often sorts first).
-      const csrf = document.cookie
-        .split(';')
-        .map((c) => c.trim())
-        .filter((c) => c.startsWith('csrfToken='))
-        .pop()
+      const csrf = getCsrfToken()
       if (csrf) {
-        headers['X-CSRFToken'] = decodeURIComponent(csrf.substring('csrfToken='.length))
+        headers['X-CSRFToken'] = csrf
       }
     } catch {
       // ignore

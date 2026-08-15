@@ -12,6 +12,7 @@ import { requestThrottler } from './request-throttle'
 import { apiCache, generateCacheKey } from './api-cache'
 import { isJwtExpired, parseJwtPayload } from './jwt'
 import { shouldUseOfflineAuthFallback } from './auth-offline'
+import { expireLegacyRootCsrfCookie, getCsrfToken, storeCsrfFromResponse } from './csrf-cookie'
 import type { User } from '@/types/user'
 
 export { shouldUseOfflineAuthFallback } from './auth-offline'
@@ -159,41 +160,10 @@ const setSessionMarkers = (user?: { is_staff?: boolean; is_superuser?: boolean; 
 const clearSessionMarkers = () => {
   deleteCookie('nf_session')
   deleteCookie('nf_is_admin')
-  deleteCookie('csrfToken')
+  expireLegacyRootCsrfCookie()
   // Clear legacy JS-writable JWT cookies if still present.
   deleteCookie('accessToken')
   deleteCookie('refreshToken')
-}
-
-const sharedAuthCookieDomain = (): string | undefined => {
-  if (typeof window === 'undefined') return undefined
-  const host = window.location.hostname
-  if (host === 'nexfit365.dpdns.org' || host.endsWith('.nexfit365.dpdns.org')) {
-    return '.nexfit365.dpdns.org'
-  }
-  return undefined
-}
-
-/** Align readable csrfToken with API Set-Cookie (Domain + SameSite=None on prod). */
-const storeCsrfFromResponse = (csrf?: string | null) => {
-  if (typeof window === 'undefined' || !csrf) return
-
-  // Drop host-only duplicates that diverge from the API Domain cookie and break CSRF checks.
-  document.cookie = 'csrfToken=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/'
-  document.cookie = 'csrfToken=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;SameSite=Lax'
-  document.cookie = 'csrfToken=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;SameSite=None;Secure'
-
-  const maxAge = 30 * 24 * 60 * 60
-  const domain = sharedAuthCookieDomain()
-  let cookie = `csrfToken=${encodeURIComponent(csrf)};path=/;max-age=${maxAge}`
-  if (domain) {
-    // Must match api.jwt_cookies.set_jwt_cookies for cross-subdomain POSTs.
-    cookie += `;domain=${domain};SameSite=None;Secure`
-  } else {
-    const secure = window.location.protocol === 'https:'
-    cookie += `;SameSite=Lax${secure ? ';Secure' : ''}`
-  }
-  document.cookie = cookie
 }
 
 // Clase principal del servicio de autenticación mejorado
@@ -209,6 +179,7 @@ export class AuthService {
     // Tokens live in HttpOnly cookies set by the API — not readable from JS.
     // Keep in-memory only for offline mode / transition Bearer callers.
     if (typeof window !== 'undefined') {
+      expireLegacyRootCsrfCookie()
       this.checkOfflineMode()
     }
   }
@@ -291,7 +262,7 @@ export class AuthService {
       return true
     }
     // Cookie session: refresh JWT is HttpOnly; csrf or session marker is a weak hint.
-    if (typeof window !== 'undefined' && (getCookie('nf_session') === '1' || getCookie('csrfToken'))) {
+    if (typeof window !== 'undefined' && (getCookie('nf_session') === '1' || getCsrfToken())) {
       return true
     }
     return false
@@ -355,7 +326,6 @@ export class AuthService {
         headers: {
           ...getAuthHeaders(),
           'X-Auth-Mode': 'cookie',
-          ...(getCookie('csrfToken') ? { 'X-CSRFToken': getCookie('csrfToken') as string } : {}),
         },
         credentials: 'include',
         body: JSON.stringify(body),
@@ -902,10 +872,7 @@ export class AuthService {
         try {
           await fetch(buildApiUrl(AUTH_ENDPOINTS.LOGOUT), {
             method: 'POST',
-            headers: {
-              ...getAuthHeaders(),
-              ...(getCookie('csrfToken') ? { 'X-CSRFToken': getCookie('csrfToken') as string } : {}),
-            },
+            headers: getAuthHeaders(),
             credentials: 'include',
             body: JSON.stringify({}),
           })
