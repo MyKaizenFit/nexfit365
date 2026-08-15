@@ -52,7 +52,7 @@ describe('MealSelectionModal recommendations', () => {
     jest.clearAllMocks()
   })
 
-  it('renders ranked alternatives with Mejor encaje and daily projection', async () => {
+  it('renders ranked alternatives with Mejor encaje and macro cards, without projection copy', async () => {
     mockGetReco.mockResolvedValue({
       date: '2026-08-04',
       plan_meal_id: 'slot-dinner',
@@ -109,7 +109,14 @@ describe('MealSelectionModal recommendations', () => {
     expect(screen.queryByText(/Objetivo día/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/Consumido:/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/Restante:/i)).not.toBeInTheDocument()
-    expect(screen.getByText(/Día proyectado: 1180 kcal/i)).toBeInTheDocument()
+    expect(screen.queryByText(/Día proyectado/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Buena aproximación/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/presupuesto de calorías/i)).not.toBeInTheDocument()
+    expect(screen.getByText('280')).toBeInTheDocument()
+    expect(screen.getAllByText('kcal').length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/prot/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('button', { name: /Ver receta/i }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('button', { name: /Ver equivalencias/i }).length).toBeGreaterThan(0)
     expect(screen.getByText('Seleccionada')).toBeInTheDocument()
     expect(screen.getByText(/Selecciona una opción para cena/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /No como ninguna de estas/i })).toBeInTheDocument()
@@ -185,6 +192,8 @@ describe('MealSelectionModal recommendations', () => {
       expect(screen.queryByText(/Presupuesto orientativo/i)).not.toBeInTheDocument()
       expect(screen.queryByText(/Presupuesto slot/i)).not.toBeInTheDocument()
       expect(screen.queryByText(/Comidas pendientes después de esta/i)).not.toBeInTheDocument()
+      expect(screen.queryByText(/Día proyectado/i)).not.toBeInTheDocument()
+      expect(screen.queryByText(/Buena aproximación/i)).not.toBeInTheDocument()
     }
   })
 

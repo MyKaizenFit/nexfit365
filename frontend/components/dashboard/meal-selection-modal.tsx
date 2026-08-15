@@ -721,22 +721,6 @@ export function MealSelectionModal({
                         </span>
                       </div>
 
-                      {option.recommendation_reason || option.projected_daily_calories != null ? (
-                        <div className="rounded-xl border border-slate-100 bg-slate-50 px-2.5 py-2 text-[11px] text-slate-700 space-y-0.5">
-                          {option.recommendation_reason ? (
-                            <p className="font-semibold">{option.recommendation_reason}</p>
-                          ) : null}
-                          {option.projected_daily_calories != null ? (
-                            <p>
-                              Día proyectado: {Math.round(option.projected_daily_calories)} kcal
-                              {option.projected_daily_macros
-                                ? ` · P ${formatMacro(option.projected_daily_macros.protein)}g · C ${formatMacro(option.projected_daily_macros.carbs)}g · G ${formatMacro(option.projected_daily_macros.fat)}g`
-                                : ''}
-                            </p>
-                          ) : null}
-                        </div>
-                      ) : null}
-
                       <div className="grid grid-cols-2 gap-2 text-[11px]">
                         <button
                           type="button"
