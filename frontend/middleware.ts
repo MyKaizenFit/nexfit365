@@ -153,6 +153,8 @@ export const config = {
      * - manifest.json (PWA manifest)
      * - public folder
      */
-    '/((?!api|_next/static|_next/image|favicon.ico|sw.js|manifest.json|public).*)',
+    // .+ not .*: Next 15 + basePath=/nexfit + trailingSlash matches /nexfit/
+    // with an empty capture, and NextResponse.next() then returns 200 with 0 bytes.
+    '/((?!api|_next/static|_next/image|favicon.ico|sw.js|manifest.json|public).+)',
   ],
 }
