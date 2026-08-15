@@ -80,3 +80,15 @@ export const isAppPath = (pathname: string, path: string): boolean => {
 
   return pathname === target || pathname.startsWith(`${target}/`)
 }
+
+/** Pathname interno (sin basePath) comparable con rutas de middleware. */
+export const routePathname = (pathname: string): string => {
+  if (pathname.length > 1 && pathname.endsWith('/')) {
+    return pathname.slice(0, -1)
+  }
+  return pathname || '/'
+}
+
+/** URL absoluta de una ruta de app, con basePath. Para Location de middleware. */
+export const appHref = (requestUrl: string, path: string): URL =>
+  new URL(appPath(path), requestUrl)

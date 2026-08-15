@@ -32,7 +32,29 @@ describe('appPath', () => {
     expect(appPath('https://nexfit365.dpdns.org/dashboard')).toBe(
       'https://nexfit365.dpdns.org/dashboard'
     )
+    expect(appPath('/favicon.ico')).toBe('/nexfit/favicon.ico')
+    expect(appPath('/icono.png?v=3')).toBe('/nexfit/icono.png?v=3')
+    expect(appPath('/apple-touch-icon.png?v=3')).toBe(
+      '/nexfit/apple-touch-icon.png?v=3'
+    )
     expect(isAppPath('/nexfit/dashboard', '/dashboard')).toBe(true)
     expect(isAppPath('/dashboard', '/dashboard')).toBe(false)
+    expect(isAppPath('/nexfit/', '/')).toBe(true)
+  })
+
+  it('builds Location URLs under /nexfit and strips trailing slash for matching', async () => {
+    process.env.NEXT_PUBLIC_BASE_PATH = '/nexfit'
+    jest.resetModules()
+    const { appHref, routePathname } = await import('../app-path')
+
+    expect(routePathname('/')).toBe('/')
+    expect(routePathname('/nexfit/')).toBe('/nexfit')
+    expect(routePathname('/auth/')).toBe('/auth')
+    expect(routePathname('/dashboard/')).toBe('/dashboard')
+
+    expect(appHref('https://metodosk.com/nexfit/dashboard/', '/auth').pathname).toBe(
+      '/nexfit/auth'
+    )
+    expect(appHref('https://metodosk.com/nexfit/', '/').pathname).toBe('/nexfit/')
   })
 })

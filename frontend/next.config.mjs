@@ -8,9 +8,9 @@ if (appBasePath && !appBasePath.startsWith('/')) {
 
 const nextConfig = {
   basePath: appBasePath,
-  // Evita bucles en dev: Django usa slash final en API y Next intentaba quitarlo
-  // antes de aplicar el rewrite hacia el backend.
-  skipTrailingSlashRedirect: true,
+  // Canonical público: https://metodosk.com/nexfit/
+  // Cloudflare ya 308 /nexfit → /nexfit/. Next debe SERVIR el slash, no redirigir al revés.
+  trailingSlash: true,
 
   async redirects() {
     return [

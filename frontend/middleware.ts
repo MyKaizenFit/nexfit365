@@ -4,6 +4,10 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { isAdminJwtPayload, isJwtExpired, parseJwtPayload } from '@/lib/jwt'
+import { appHref, routePathname } from '@/lib/app-path'
+
+const redirectTo = (request: NextRequest, path: string) =>
+  NextResponse.redirect(appHref(request.url, path))
 
 // Rutas que requieren autenticación
 const protectedRoutes = [
@@ -31,8 +35,8 @@ const adminOnlyRoutes = [
 ]
 
 export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl
-  
+  const pathname = routePathname(request.nextUrl.pathname)
+
   // Prefer JWT cookie (HttpOnly, readable by middleware). Fall back to session markers.
   const accessToken = request.cookies.get('accessToken')?.value
   const refreshToken = request.cookies.get('refreshToken')?.value
@@ -50,59 +54,50 @@ export function middleware(request: NextRequest) {
       const isAdmin = isAdminJwtPayload(accessPayload) || adminFromMarker
 
       if (isAdmin) {
-        return NextResponse.redirect(new URL('/admin', request.url))
+        return redirectTo(request, '/admin')
       }
 
       const formCompleted = request.cookies.get('initial_form_completed')?.value
       if (!formCompleted || formCompleted !== 'true') {
-        return NextResponse.redirect(new URL('/initial-registration', request.url))
+        return redirectTo(request, '/initial-registration')
       }
 
-      return NextResponse.redirect(new URL('/dashboard', request.url))
+      return redirectTo(request, '/dashboard')
     } catch (error) {
-      // Si no podemos decodificar el token, redirigir a dashboard por defecto
-      return NextResponse.redirect(new URL('/dashboard', request.url))
+      return redirectTo(request, '/dashboard')
     }
   }
-  
-  // Verificar si la ruta actual requiere autenticación
-  const isProtectedRoute = protectedRoutes.some(route => 
-    pathname.startsWith(route)
-  )
-  
-  // Verificar si la ruta actual es solo para usuarios no autenticados
-  const isPublicOnlyRoute = publicOnlyRoutes.some(route => 
-    pathname.startsWith(route)
-  )
-  
-  // Verificar si la ruta actual es solo para administradores
-  const isAdminOnlyRoute = adminOnlyRoutes.some(route => 
+
+  const isProtectedRoute = protectedRoutes.some(route =>
     pathname.startsWith(route)
   )
 
-  // Si no hay tokens y es una ruta protegida, redirigir al login
+  const isPublicOnlyRoute = publicOnlyRoutes.some(route =>
+    pathname.startsWith(route)
+  )
+
+  const isAdminOnlyRoute = adminOnlyRoutes.some(route =>
+    pathname.startsWith(route)
+  )
+
   if (isProtectedRoute && !hasUsableAccessToken) {
     if (refreshToken || sessionMarker) {
       return NextResponse.next()
     }
 
-    const loginUrl = new URL('/auth', request.url)
+    const loginUrl = appHref(request.url, '/auth')
     loginUrl.searchParams.set('redirect', pathname)
     return NextResponse.redirect(loginUrl)
   }
 
-  // Si hay tokens y es una ruta protegida (excepto el formulario inicial), verificar si el formulario está completo
   if (isProtectedRoute && hasUsableAccessToken && pathname !== '/initial-registration') {
     try {
       const isAdmin = isAdminJwtPayload(accessPayload) || adminFromMarker
-      
-      // Los administradores no necesitan completar el formulario
+
       if (!isAdmin) {
-        // Verificar si el formulario inicial está completo leyendo la cookie
         const formCompleted = request.cookies.get('initial_form_completed')?.value
         if (!formCompleted || formCompleted !== 'true') {
-          // Si el formulario no está completo, redirigir al formulario de registro inicial
-          return NextResponse.redirect(new URL('/initial-registration', request.url))
+          return redirectTo(request, '/initial-registration')
         }
       }
     } catch (error) {
@@ -110,50 +105,38 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  // Si hay tokens y es una ruta pública (como login), redirigir según el rol
   // EXCEPTION: never bounce away from /auth — stale HttpOnly JWTs caused
   // dashboard↔auth redirect loops that look like infinite loading.
   if (isPublicOnlyRoute && hasUsableAccessToken && !pathname.startsWith('/auth')) {
     try {
       const isAdmin = isAdminJwtPayload(accessPayload) || adminFromMarker
-      
+
       if (isAdmin) {
-        // Si es admin, redirigir al panel de administrador
-        return NextResponse.redirect(new URL('/admin', request.url))
-      } else {
-        // Verificar si el formulario inicial está completo leyendo la cookie
-        const formCompleted = request.cookies.get('initial_form_completed')?.value
-        if (!formCompleted || formCompleted !== 'true') {
-          // Si el formulario no está completo, redirigir al formulario de registro inicial
-          return NextResponse.redirect(new URL('/initial-registration', request.url))
-        } else {
-          // Si es usuario normal y el formulario está completo, redirigir al dashboard
-          return NextResponse.redirect(new URL('/dashboard', request.url))
-        }
+        return redirectTo(request, '/admin')
       }
+
+      const formCompleted = request.cookies.get('initial_form_completed')?.value
+      if (!formCompleted || formCompleted !== 'true') {
+        return redirectTo(request, '/initial-registration')
+      }
+      return redirectTo(request, '/dashboard')
     } catch (error) {
-      // Si hay error decodificando el token, redirigir al dashboard por defecto
-      return NextResponse.redirect(new URL('/dashboard', request.url))
+      return redirectTo(request, '/dashboard')
     }
   }
 
-  // Para rutas de administrador, verificar si el usuario es admin
   if (isAdminOnlyRoute && hasUsableAccessToken) {
     try {
       const isAdmin = isAdminJwtPayload(accessPayload) || adminFromMarker
-      
+
       if (!isAdmin) {
-        // Si no es admin, redirigir al dashboard
-        return NextResponse.redirect(new URL('/dashboard', request.url))
-      } else {
+        return redirectTo(request, '/dashboard')
       }
     } catch (error) {
-      // Si hay error decodificando el token, redirigir al login
-      return NextResponse.redirect(new URL('/auth', request.url))
+      return redirectTo(request, '/auth')
     }
   }
 
-  // Continuar con la request
   return NextResponse.next()
 }
 
