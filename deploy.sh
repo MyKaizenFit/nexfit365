@@ -23,6 +23,8 @@ set -Eeuo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/lib/frontend-health-path.sh
 . "$SCRIPT_DIR/scripts/lib/frontend-health-path.sh"
+# shellcheck source=scripts/lib/maintenance-lifecycle.sh
+. "$SCRIPT_DIR/scripts/lib/maintenance-lifecycle.sh"
 DEPLOY_LOG_DIR="$SCRIPT_DIR/data/logs"
 DEPLOY_PID_FILE="$DEPLOY_LOG_DIR/deploy.pid"
 DEPLOY_LOG_FILE="$DEPLOY_LOG_DIR/deploy-latest.log"
@@ -280,6 +282,11 @@ cleanup_deploy_pid() {
 }
 
 MAINTENANCE_SCRIPT="$SCRIPT_DIR/scripts/deployment/maintenance.sh"
+MAINTENANCE_FLAG="${MAINTENANCE_FLAG:-$SCRIPT_DIR/data/maintenance/maintenance.on}"
+MAINTENANCE_WAS_ALREADY_ENABLED=false
+if [ -f "$MAINTENANCE_FLAG" ]; then
+    MAINTENANCE_WAS_ALREADY_ENABLED=true
+fi
 MAINTENANCE_ENABLED_BY_DEPLOY=false
 
 enable_maintenance_mode() {
@@ -302,7 +309,10 @@ enable_maintenance_mode() {
 }
 
 disable_maintenance_mode() {
-    if [ "$MAINTENANCE_ENABLED_BY_DEPLOY" != true ]; then
+    if [ "$(should_disable_deploy_maintenance "$MAINTENANCE_WAS_ALREADY_ENABLED" "$MAINTENANCE_ENABLED_BY_DEPLOY")" != 1 ]; then
+        if [ "$MAINTENANCE_WAS_ALREADY_ENABLED" = true ]; then
+            print_info "Mantenimiento manual previo: se deja ON"
+        fi
         return 0
     fi
     print_info "Desactivando modo mantenimiento..."
