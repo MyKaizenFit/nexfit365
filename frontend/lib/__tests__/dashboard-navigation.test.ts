@@ -26,14 +26,14 @@ describe('dashboard navigation helpers', () => {
     expect(router.push).toHaveBeenCalledWith('/dashboard?section=meals', { scroll: false })
   })
 
-  it('hides Bienestar, Descanso and Mi Perfil from user navigation without blocking Perfil', () => {
+  it('hides Bienestar and Mi Perfil while keeping Descanso visible', () => {
     expect(isUserNavItemVisible('wellness')).toBe(false)
-    expect(isUserNavItemVisible('rest-wellness')).toBe(false)
+    expect(isUserNavItemVisible('rest-wellness')).toBe(true)
     expect(isUserNavItemVisible('profile')).toBe(false)
     expect(isUserNavItemVisible('dashboard')).toBe(true)
     expect(isUserNavItemVisible('settings')).toBe(true)
     expect(shouldRedirectHiddenDashboardSection(WELLNESS_SECTION)).toBe(true)
-    expect(shouldRedirectHiddenDashboardSection(REST_WELLNESS_SECTION)).toBe(true)
+    expect(shouldRedirectHiddenDashboardSection(REST_WELLNESS_SECTION)).toBe(false)
     expect(shouldRedirectHiddenDashboardSection('profile')).toBe(false)
 
     const visible = filterUserNavItems([
@@ -43,10 +43,10 @@ describe('dashboard navigation helpers', () => {
       { title: 'Mi Perfil', url: 'profile' },
       { title: 'Configuración', url: 'settings' },
     ])
-    expect(visible.map((item) => item.url)).toEqual(['dashboard', 'settings'])
+    expect(visible.map((item) => item.url)).toEqual(['dashboard', 'rest-wellness', 'settings'])
   })
 
-  it('hides Descanso from the desktop sidebar menu and the mobile more menu', () => {
+  it('keeps Descanso in the desktop sidebar menu and the mobile more menu', () => {
     const desktopMenu = [
       { title: 'Inicio', url: 'dashboard' },
       { title: 'Bienestar', url: 'wellness' },
@@ -62,23 +62,31 @@ describe('dashboard navigation helpers', () => {
     ]
     expect(filterUserNavItems(desktopMenu).map((item) => item.url)).toEqual([
       'dashboard',
+      'rest-wellness',
       'workouts-3',
       'settings',
     ])
     expect(filterUserNavItems(mobileMoreMenu).map((item) => item.url)).toEqual([
+      'rest-wellness',
       'achievements',
       'settings',
     ])
-    expect(filterUserNavItems(desktopMenu).some((item) => item.title === 'Descanso')).toBe(false)
-    expect(filterUserNavItems(mobileMoreMenu).some((item) => item.title === 'Descanso')).toBe(false)
+    expect(filterUserNavItems(desktopMenu).some((item) => item.title === 'Descanso')).toBe(true)
+    expect(filterUserNavItems(mobileMoreMenu).some((item) => item.title === 'Descanso')).toBe(true)
   })
 
-  it('redirects direct Bienestar and Descanso URLs to the dashboard', () => {
+  it('redirects direct Bienestar URLs without redirecting Descanso', () => {
     const nextConfig = fs.readFileSync(path.join(process.cwd(), 'next.config.mjs'), 'utf8')
     expect(nextConfig).toContain("source: '/bienestar'")
     expect(nextConfig).toContain("source: '/wellness'")
-    expect(nextConfig).toContain("source: '/descanso'")
-    expect(nextConfig).toContain("source: '/rest-wellness'")
+    expect(nextConfig).not.toContain("source: '/descanso'")
+    expect(nextConfig).not.toContain("source: '/rest-wellness'")
     expect(nextConfig).toContain("destination: '/dashboard'")
+  })
+
+  it('keeps the dashboard greeting without a waving hand icon', () => {
+    const dashboardPage = fs.readFileSync(path.join(process.cwd(), 'app/dashboard/page.tsx'), 'utf8')
+    expect(dashboardPage).toContain("¡Hola, {user?.first_name || 'Usuario'}!")
+    expect(dashboardPage).not.toContain("¡Hola, {user?.first_name || 'Usuario'}! 👋")
   })
 })

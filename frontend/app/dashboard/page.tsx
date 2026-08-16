@@ -698,7 +698,7 @@ function DashboardContent() {
               <div className="responsive-flex flex-1 items-center justify-between min-w-0">
                 <div className="min-w-0 flex-1">
                   <h1 className="text-lg font-semibold responsive-text bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
-                    ¡Hola, {user?.first_name || 'Usuario'}! 👋
+                    ¡Hola, {user?.first_name || 'Usuario'}!
                   </h1>
                   <p className="text-sm text-muted-foreground responsive-text">
                     Día {userStats?.daysInTransformation || 1} de tu transformación ✨
