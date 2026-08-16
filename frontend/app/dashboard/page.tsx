@@ -70,7 +70,6 @@ const NotificationsDropdown = lazy(() => import("./components/notifications-drop
 const WorkoutPlansDashboard = lazy(() => import("@/components/workout-plans-dashboard").then(module => ({ default: module.WorkoutPlansDashboard })))
 const TipsShowcase = lazy(() => import("@/components/dashboard/tips-showcase").then(module => ({ default: module.TipsShowcase })))
 const TipsBoard = lazy(() => import("@/components/tips/tips-board").then(module => ({ default: module.TipsBoard })))
-const RecommendationsSection = lazy(() => import("@/components/recommendations/recommendations-section").then(module => ({ default: module.RecommendationsSection })))
 const WellnessTracker = lazy(() => import("./components/wellness-tracker").then(module => ({ default: module.WellnessTracker })))
 const RestWellnessSection = lazy(() => import("./components/rest-wellness-section").then(module => ({ default: module.RestWellnessSection })))
 const BodyMeasurements = lazy(() => import("./components/body-measurements").then(module => ({ default: module.BodyMeasurements })))
@@ -86,7 +85,7 @@ import { useRestWellnessAccess } from "@/hooks/use-rest-wellness-access"
 import { canShowCommercialUpsellForUser } from "@/lib/premium-cta"
 import { filterUserNavItems, shouldRedirectHiddenDashboardSection } from "@/lib/dashboard-navigation"
 import { ThemeToggle } from "@/components/theme-toggle"
-import { DashboardSectionFallback, AchievementsSectionSkeleton, DayOneSectionSkeleton, FeedGridSkeleton, MealsSectionSkeleton, MeasurementsSectionSkeleton, ProfileSectionSkeleton, RecommendationsSectionSkeleton, SettingsSectionSkeleton, TipsSectionSkeleton, WellnessSectionSkeleton, WorkoutsSectionSkeleton, DashboardHomeSkeleton } from "@/components/dashboard/dashboard-skeletons"
+import { DashboardSectionFallback, AchievementsSectionSkeleton, DayOneSectionSkeleton, FeedGridSkeleton, MealsSectionSkeleton, MeasurementsSectionSkeleton, ProfileSectionSkeleton, SettingsSectionSkeleton, TipsSectionSkeleton, WellnessSectionSkeleton, WorkoutsSectionSkeleton, DashboardHomeSkeleton } from "@/components/dashboard/dashboard-skeletons"
 
 const menuItems = [
   { title: "Inicio", icon: Home, url: "dashboard", isActive: true },
@@ -279,9 +278,6 @@ function DashboardContent() {
                   </Suspense>
                 ) : null}
                 <Suspense fallback={null}>
-                  <RecommendationsSection />
-                </Suspense>
-                <Suspense fallback={null}>
                   <TipsShowcase />
                 </Suspense>
               </div>
@@ -294,19 +290,7 @@ function DashboardContent() {
 
 
       case "recommendations":
-        return (
-          <div className="fade-in-stagger scroll-area h-full w-full relative">
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-              <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-amber-200/20 to-pink-200/20 rounded-full blur-3xl animate-pulse"></div>
-              <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-sky-200/20 to-emerald-200/20 rounded-full blur-3xl animate-pulse delay-700"></div>
-            </div>
-            <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
-              <Suspense fallback={<RecommendationsSectionSkeleton />}>
-                <RecommendationsSection />
-              </Suspense>
-            </div>
-          </div>
-        )
+        return null
 
       case "coaching":
         if (hideUpsellSections) {
