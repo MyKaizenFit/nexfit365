@@ -1,14 +1,17 @@
 export const WELLNESS_SECTION = "wellness"
 export const REST_WELLNESS_SECTION = "rest-wellness"
+export const RECOMMENDATIONS_SECTION = "recommendations"
 export const PROFILE_SECTION = "profile"
 
-// ponytail: Bienestar is temporarily hidden from users; flip to false to restore sidebar + direct URL access.
+// ponytail: Bienestar and Recomendaciones are temporarily hidden from users; flip to false to restore sidebar + direct URL access.
 export const WELLNESS_TEMPORARILY_HIDDEN = true
+export const RECOMMENDATIONS_TEMPORARILY_HIDDEN = true
 
 const SIDEBAR_ONLY_HIDDEN_SECTIONS = new Set([PROFILE_SECTION])
 
 export function shouldRedirectHiddenDashboardSection(section: string): boolean {
   if (WELLNESS_TEMPORARILY_HIDDEN && section === WELLNESS_SECTION) return true
+  if (RECOMMENDATIONS_TEMPORARILY_HIDDEN && section === RECOMMENDATIONS_SECTION) return true
   return false
 }
 

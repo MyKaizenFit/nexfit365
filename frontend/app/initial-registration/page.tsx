@@ -1,22 +1,20 @@
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { InitialRegistrationForm } from '@/components/forms/initial-registration-form';
 import { useInitialRegistration } from '@/hooks/use-initial-registration';
-import { PersonalizedRecommendations } from '@/components/personalized-recommendations';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { CheckCircle, ArrowRight, Sparkles, LogOut } from 'lucide-react';
+import { CheckCircle, ArrowRight, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/auth-context'
 import { appPath } from '@/lib/app-path';
 
 export default function InitialRegistrationPage() {
   const router = useRouter();
-  const { completeRegistration, isLoading, isComplete, completionPercentage, userData, userDataLoaded, profile } = useInitialRegistration();
+  const { completeRegistration, isLoading, isComplete, completionPercentage, userData, userDataLoaded } = useInitialRegistration();
   const { logout } = useAuth();
-  const [showRecommendations, setShowRecommendations] = useState(false);
   
   // Memoizar userData para evitar re-renders innecesarios
   const memoizedUserData = useMemo(() => userData, [
@@ -35,7 +33,7 @@ export default function InitialRegistrationPage() {
 
   // Si ya completó el formulario, redirigir al dashboard
   React.useEffect(() => {
-    if (isComplete && !showRecommendations) {
+    if (isComplete) {
       // Esperar un poco para que el usuario vea el mensaje de éxito
       const timer = setTimeout(() => {
         router.push('/dashboard');
@@ -43,45 +41,27 @@ export default function InitialRegistrationPage() {
       
       return () => clearTimeout(timer);
     }
-  }, [isComplete, showRecommendations, router]);
+  }, [isComplete, router]);
 
   const handleComplete = async (data: any) => {
     try {
       await completeRegistration(data);
-      setShowRecommendations(true);
       
       // Redirigir al dashboard después de completar
       setTimeout(() => {
         router.push('/dashboard');
-      }, 3000); // Dar tiempo para mostrar las recomendaciones
+      }, 2000);
     } catch (error: any) {
       // El error ya se maneja en el hook, pero podemos agregar más información aquí si es necesario
       
       // Si es un error de conexión, mostrar mensaje adicional
       if (error?.message?.includes('Failed to fetch') || error?.message?.includes('No se pudo conectar')) {
-        // El hook ya muestra el error, pero podemos agregar un mensaje más visible
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+        // El hook ya muestra el error.
       }
     }
   };
 
-  const handleCreatePlans = () => {
-    // Redirigir al dashboard después de crear los planes
-    router.push('/dashboard');
-  };
-
-  // Si ya está completo, mostrar recomendaciones o mensaje de éxito
-  if (isComplete && showRecommendations) {
-    return (
-      <div className="min-h-screen bg-muted py-8">
-        <div className="container mx-auto px-4">
-          <PersonalizedRecommendations userProfile={profile} onComplete={handleCreatePlans} />
-        </div>
-      </div>
-    );
-  }
-
-  if (isComplete && !showRecommendations) {
+  if (isComplete) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted">
         <Card className="w-full max-w-md">
@@ -95,10 +75,6 @@ export default function InitialRegistrationPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="text-center">
-            <Button onClick={() => setShowRecommendations(true)} className="w-full mb-2">
-              <Sparkles className="mr-2 h-4 w-4" />
-              Ver Recomendaciones Personalizadas
-            </Button>
             <Button onClick={() => router.push('/dashboard')} variant="outline" className="w-full">
               Ir a Inicio
               <ArrowRight className="ml-2 h-4 w-4" />
