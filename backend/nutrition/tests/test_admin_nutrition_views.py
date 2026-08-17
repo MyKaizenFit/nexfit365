@@ -345,9 +345,11 @@ class TestAdminNutritionPlanViewSet:
         assert response.status_code == status.HTTP_200_OK
         assert MealLog.objects.filter(id=log.id).exists()
 
-    def test_update_plan_with_meals_clears_today_meal_logs(
+    def test_update_plan_with_meals_preserves_unrelated_meal_logs(
         self, admin_client, nutrition_plan, regular_user
     ):
+        """Option 4: editing meals must not wipe MealLogs that are not attached
+        to removed slots (and must not flip completed)."""
         from django.utils import timezone
 
         today = timezone.localdate()
@@ -357,6 +359,7 @@ class TestAdminNutritionPlanViewSet:
             meal_type='breakfast',
             calories=500,
             protein=Decimal('40.0'),
+            completed=True,
         )
         payload = {
             'meals': [
@@ -375,7 +378,9 @@ class TestAdminNutritionPlanViewSet:
             format='json',
         )
         assert response.status_code == status.HTTP_200_OK
-        assert not MealLog.objects.filter(id=log.id).exists()
+        log.refresh_from_db()
+        assert log.completed is True
+        assert log.calories == 500
 
     def test_update_plan_with_duplicate_other_meal_logs_does_not_500(
         self, admin_client, nutrition_plan, regular_user
