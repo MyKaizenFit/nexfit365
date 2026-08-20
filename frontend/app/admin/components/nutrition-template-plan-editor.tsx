@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "@/hooks/use-toast"
 import { buildApiUrl } from "@/lib/api"
+import { formatHttpError } from "@/lib/api-errors"
 import { handle401AndRefresh } from "@/lib/fetch-with-auth"
 import { fixEncoding } from "@/lib/encoding-fix"
 import { ArrowDown, ArrowUp, Loader2, Plus, Trash2, Search, ChevronLeft, ChevronRight, Copy, ClipboardPaste, Check, ChevronDown } from "lucide-react"
@@ -442,7 +443,11 @@ export const NutritionTemplatePlanEditor = forwardRef<
     }
     if (!res.ok) {
       const errData = await res.json().catch(() => ({}))
-      throw new Error(errData.detail || errData.error || `Error ${res.status}`)
+      throw new Error(formatHttpError(res.status, errData, {
+        validationMessage: "Hay datos incorrectos en el formulario. Revisa los campos indicados.",
+        serverMessage: "Ha ocurrido un error interno al guardar el menú. Inténtalo de nuevo.",
+        fallback: "No se pudo guardar el menú",
+      }))
     }
     return await res.json().catch(() => null)
   }, [getAuthHeaders])
@@ -949,8 +954,8 @@ export const NutritionTemplatePlanEditor = forwardRef<
       await onSaved(saved ?? { id: savedPlanId })
     } catch (e) {
       toast({
-        title: "❌ Error",
-        description: e instanceof Error ? e.message : "No se pudo guardar",
+        title: "No se pudo guardar el menú",
+        description: e instanceof Error ? e.message : "No se pudo guardar el menú",
         variant: "destructive",
       })
     } finally {
