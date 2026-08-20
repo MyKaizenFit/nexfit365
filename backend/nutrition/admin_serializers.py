@@ -1,4 +1,7 @@
 # nutrition/admin_serializers.py
+import re
+from datetime import time as time_cls
+
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from .models import Recipe, NutritionPlan, PlanMeal, Food, PlanMealRecipe, RecipeIngredient, EquivalenceCategory
@@ -6,6 +9,42 @@ from .serializers import RecipeIngredientSerializer, FoodMinimalSerializer
 from backend.media_urls import PublicMediaImageField
 
 User = get_user_model()
+
+MEAL_TIME_INVALID = "Formato de hora incorrecto. Usa HH:MM, por ejemplo 23:00."
+# ISO-8601 acepta "23.30" como 23h + 0.30s; el editor solo usa HH:MM / HH:MM:SS.
+_MEAL_TIME_RE = re.compile(r"^\d{1,2}:\d{2}(?::\d{2}(?:\.\d{1,6})?)?$")
+
+
+class MealTimeField(serializers.TimeField):
+    """Acepta HH:MM y HH:MM:SS; vacío → None; inválido → 400 con mensaje claro."""
+
+    default_error_messages = {
+        "invalid": MEAL_TIME_INVALID,
+        "datetime": MEAL_TIME_INVALID,
+    }
+
+    def to_internal_value(self, value):
+        if value is None:
+            return None
+        if isinstance(value, time_cls):
+            return value
+        if isinstance(value, str) and value.strip() == "":
+            return None
+        raw = str(value).strip()
+        if not _MEAL_TIME_RE.match(raw):
+            self.fail("invalid")
+        return super().to_internal_value(raw)
+
+
+_MEAL_TIME_FIELD = MealTimeField(required=False, allow_null=True)
+
+
+def parse_plan_meal_time(value):
+    """Normaliza la hora de una comida o lanza ValidationError de DRF (HTTP 400)."""
+    try:
+        return _MEAL_TIME_FIELD.run_validation(value)
+    except serializers.ValidationError:
+        raise serializers.ValidationError(MEAL_TIME_INVALID)
 
 
 class AdminUserLiteSerializer(serializers.ModelSerializer):
@@ -115,6 +154,7 @@ class AdminPlanMealSerializer(serializers.ModelSerializer):
     """Serializer de comidas con recetas detalladas y cantidades personalizadas"""
     suggested_recipes = RecipeMinimalForMealSerializer(many=True, read_only=True)
     meal_recipes = serializers.SerializerMethodField()
+    time = MealTimeField(required=False, allow_null=True)
     plan_id = serializers.PrimaryKeyRelatedField(
         queryset=NutritionPlan.objects.all(),
         source='plan',

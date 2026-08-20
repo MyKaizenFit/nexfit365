@@ -1,5 +1,5 @@
 # nutrition/admin_views.py
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, serializers
 from rest_framework.decorators import action, api_view, permission_classes as perm_classes, parser_classes as parser_decorator
 from rest_framework.response import Response
 from rest_framework.permissions import IsAdminUser
@@ -27,7 +27,8 @@ from .models import (
 from .admin_serializers import (
     AdminRecipeSerializer, AdminNutritionPlanSerializer,
     AdminPlanMealSerializer, AdminFoodSerializer, PlanMealRecipeSerializer,
-    AdminNutritionPlanMinimalSerializer, EquivalenceCategorySerializer
+    AdminNutritionPlanMinimalSerializer, EquivalenceCategorySerializer,
+    parse_plan_meal_time,
 )
 from .serializers import MealLogSerializer, NutritionPlanHistorySerializer
 from .serializers import AdminCommunityRecipePostSerializer
@@ -1379,6 +1380,33 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
         except (TypeError, ValueError):
             return None
 
+    def _meal_int_or_400(self, value, empty_default, message):
+        if value is None or value == '':
+            return empty_default
+        parsed = self._to_int(value)
+        if parsed is None:
+            raise serializers.ValidationError(message)
+        return parsed
+
+    def _normalize_meal_payload(self, meal_data, idx):
+        data = dict(meal_data)
+        data['time'] = parse_plan_meal_time(meal_data.get('time'))
+        try:
+            data['week_number'] = max(1, int(meal_data.get('week_number') or 1))
+        except (TypeError, ValueError):
+            raise serializers.ValidationError('El número de semana no es válido.')
+        data['day_of_week'] = self._meal_int_or_400(
+            meal_data.get('day_of_week'),
+            None,
+            'El día de la semana no es válido.',
+        )
+        data['order_index'] = self._meal_int_or_400(
+            meal_data.get('order_index'),
+            idx + 1,
+            'El orden de la comida no es válido.',
+        ) or (idx + 1)
+        return data
+
     def _to_decimal(self, value, default='0'):
         try:
             if value is None or value == '':
@@ -1496,7 +1524,13 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
         if not isinstance(meals_payload, list):
             return
 
-        recipe_map = self._build_recipe_map(meals_payload)
+        normalized = []
+        for idx, meal_data in enumerate(meals_payload):
+            if not isinstance(meal_data, dict):
+                continue
+            normalized.append(self._normalize_meal_payload(meal_data, idx))
+
+        recipe_map = self._build_recipe_map(normalized)
 
         # Detach logs antes del SET_NULL implícito al borrar slots
         self._detach_meal_logs_before_replacing_meals(plan)
@@ -1504,20 +1538,17 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
         # Eliminar comidas anteriores (cascade elimina PlanMealRecipe)
         plan.meals.all().delete()
 
-        for idx, meal_data in enumerate(meals_payload):
-            if not isinstance(meal_data, dict):
-                continue
-
+        for idx, meal_data in enumerate(normalized):
             suggested_ids = meal_data.get('suggested_recipes_ids')
             meal_recipes = meal_data.get('meal_recipes')
 
             meal = PlanMeal.objects.create(
                 plan=plan,
                 day_of_week=meal_data.get('day_of_week') or None,
-                week_number=max(1, int(meal_data.get('week_number') or 1)),
+                week_number=meal_data['week_number'],
                 name=meal_data.get('name') or f'Comida {idx + 1}',
                 meal_type=meal_data.get('meal_type') or 'lunch',
-                time=meal_data.get('time') or None,
+                time=meal_data.get('time'),
                 calories=0,
                 protein=0,
                 carbs=0,

@@ -497,6 +497,68 @@ class TestAdminNutritionPlanViewSet:
         meals = list(nutrition_plan.meals.order_by('day_of_week', 'order_index').values_list('name', 'order_index'))
         assert meals == [('Comida mañana', 1), ('Comida tarde', 2)]
 
+    def _meal_payload(self, **overrides):
+        payload = {
+            'day_of_week': 1,
+            'name': 'Desayuno',
+            'meal_type': 'breakfast',
+            'time': '08:00',
+            'order_index': 1,
+        }
+        payload.update(overrides)
+        return payload
+
+    def test_update_plan_accepts_time_hhmm(self, admin_client, nutrition_plan):
+        from datetime import time as time_cls
+
+        response = admin_client.patch(
+            f'{PLANS_URL}{nutrition_plan.id}/',
+            {'meals': [self._meal_payload(time='23:00')]},
+            format='json',
+        )
+        assert response.status_code == status.HTTP_200_OK
+        meal = nutrition_plan.meals.get()
+        assert meal.time == time_cls(23, 0)
+
+    def test_update_plan_accepts_time_hhmmss(self, admin_client, nutrition_plan):
+        from datetime import time as time_cls
+
+        response = admin_client.patch(
+            f'{PLANS_URL}{nutrition_plan.id}/',
+            {'meals': [self._meal_payload(time='08:00:00')]},
+            format='json',
+        )
+        assert response.status_code == status.HTTP_200_OK
+        meal = nutrition_plan.meals.get()
+        assert meal.time == time_cls(8, 0, 0)
+
+    @pytest.mark.parametrize('invalid_time', ['25:00', '23:99', '23.30', 'texto', '8:00am'])
+    def test_update_plan_invalid_time_returns_400(
+        self, admin_client, nutrition_plan, plan_meal, invalid_time
+    ):
+        original_id = plan_meal.id
+        response = admin_client.patch(
+            f'{PLANS_URL}{nutrition_plan.id}/',
+            {'meals': [self._meal_payload(time=invalid_time)]},
+            format='json',
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.status_code != status.HTTP_500_INTERNAL_SERVER_ERROR
+        detail = str(response.data.get('detail') or response.data)
+        assert 'Formato de hora incorrecto. Usa HH:MM, por ejemplo 23:00.' in detail
+        assert PlanMeal.objects.filter(id=original_id).exists()
+
+    def test_update_plan_invalid_week_number_returns_400(self, admin_client, nutrition_plan):
+        response = admin_client.patch(
+            f'{PLANS_URL}{nutrition_plan.id}/',
+            {'meals': [self._meal_payload(week_number='abc')]},
+            format='json',
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.status_code != status.HTTP_500_INTERNAL_SERVER_ERROR
+        detail = str(response.data.get('detail') or response.data)
+        assert 'semana' in detail.lower()
+
     def test_generate_weekly_progression_from_base_day(self, admin_client, nutrition_plan, recipe):
         base_meal = PlanMeal.objects.create(
             plan=nutrition_plan,
@@ -581,6 +643,26 @@ class TestAdminNutritionPlanViewSet:
     def test_delete_plan(self, admin_client, nutrition_plan):
         response = admin_client.delete(f'{PLANS_URL}{nutrition_plan.id}/')
         assert response.status_code == status.HTTP_204_NO_CONTENT
+
+
+class TestParsePlanMealTime:
+    def test_accepts_hhmm_and_hhmmss(self):
+        from datetime import time as time_cls
+        from nutrition.admin_serializers import parse_plan_meal_time
+
+        assert parse_plan_meal_time('23:00') == time_cls(23, 0)
+        assert parse_plan_meal_time('08:00:00') == time_cls(8, 0, 0)
+        assert parse_plan_meal_time('') is None
+        assert parse_plan_meal_time(None) is None
+
+    def test_rejects_invalid_values_with_spanish_message(self):
+        from rest_framework.exceptions import ValidationError
+        from nutrition.admin_serializers import MEAL_TIME_INVALID, parse_plan_meal_time
+
+        for invalid in ('25:00', '23:99', '23.30', 'texto'):
+            with pytest.raises(ValidationError) as exc:
+                parse_plan_meal_time(invalid)
+            assert MEAL_TIME_INVALID in str(exc.value.detail)
 
 
 @pytest.mark.django_db
@@ -697,6 +779,20 @@ class TestAdminPlanMealViewSet:
         }
         response = admin_client.post(MEALS_URL, data, format='json')
         assert response.status_code in [status.HTTP_201_CREATED, status.HTTP_200_OK, status.HTTP_400_BAD_REQUEST]
+
+    def test_create_meal_invalid_time_returns_400(self, admin_client, nutrition_plan):
+        data = {
+            'plan_id': str(nutrition_plan.id),
+            'name': 'Cena',
+            'meal_type': 'dinner',
+            'time': '25:00',
+            'order_index': 1,
+            'calories': 500,
+        }
+        response = admin_client.post(MEALS_URL, data, format='json')
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        detail = str(response.data.get('detail') or response.data)
+        assert 'Formato de hora incorrecto. Usa HH:MM, por ejemplo 23:00.' in detail
 
     def test_delete_meal(self, admin_client, plan_meal):
         response = admin_client.delete(f'{MEALS_URL}{plan_meal.id}/')
