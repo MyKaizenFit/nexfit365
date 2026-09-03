@@ -8,13 +8,14 @@ from rest_framework import permissions, viewsets, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from .models import WeightEntry, DailyWellness, ProgressPhoto, RestWellnessAssessment
+from .models import WeightEntry, DailyWellness, ProgressPhoto, RestWellnessAssessment, BodyMeasurement
 from .serializers import (
     WeightEntrySerializer,
     DailyWellnessSerializer,
     ProgressPhotoSerializer,
     RestWellnessAssessmentDetailSerializer,
     RestWellnessAssessmentListSerializer,
+    BodyMeasurementSerializer,
 )
 from .timeline import build_progress_timeline, first_last_by_type
 from .photo_idempotency import get_cached_photo_id, get_idempotency_key, set_cached_photo_id
@@ -387,3 +388,28 @@ class AdminRestWellnessAssessmentViewSet(viewsets.ReadOnlyModelViewSet):
         if self.action == "retrieve":
             return RestWellnessAssessmentDetailSerializer
         return RestWellnessAssessmentListSerializer
+
+
+class AdminBodyMeasurementViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Consulta de medidas corporales ya registradas por una usuaria (solo admin/staff).
+    Prefijo: /api/admin/progress/users/<user_id>/measurements/
+    """
+
+    serializer_class = BodyMeasurementSerializer
+    permission_classes = [permissions.IsAdminUser]
+    filter_backends = [filters.OrderingFilter]
+    ordering_fields = ["date", "created_at"]
+    ordering = ["-date", "-created_at"]
+    http_method_names = ["get", "head", "options"]
+
+    def get_user(self):
+        if getattr(self, "swagger_fake_view", False):
+            return None
+        user_id = self.kwargs.get("user_id")
+        return get_object_or_404(User, pk=user_id)
+
+    def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return BodyMeasurement.objects.none()
+        return BodyMeasurement.objects.filter(user=self.get_user()).select_related("user")

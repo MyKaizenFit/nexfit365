@@ -6,6 +6,7 @@ from .admin_views import (
     AdminDailyWellnessViewSet,
     AdminProgressPhotoViewSet,
     AdminRestWellnessAssessmentViewSet,
+    AdminBodyMeasurementViewSet,
 )
 
 router = DefaultRouter()
@@ -28,6 +29,11 @@ router.register(
     r"users/(?P<user_id>[^/.]+)/rest-wellness",
     AdminRestWellnessAssessmentViewSet,
     basename="admin-rest-wellness",
+)
+router.register(
+    r"users/(?P<user_id>[^/.]+)/measurements",
+    AdminBodyMeasurementViewSet,
+    basename="admin-body-measurements",
 )
 
 urlpatterns = [
