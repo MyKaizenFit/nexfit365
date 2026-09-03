@@ -8,6 +8,7 @@ import { Loader2, TrendingUp, HeartPulse, RefreshCw, Download } from "lucide-rea
 import { UserWeightHistory } from "./user-weight-history"
 import { UserWellnessPanel } from "./user-wellness-panel"
 import { UserSleepPerformancePanel } from "./user-sleep-performance-panel"
+import { UserMeasurementsHistory } from "./user-measurements-history"
 // import { ProgressPhotosCarousel } from "./progress-photos-carousel" // Oculto temporalmente
 import { useAdminUserProgress } from "@/hooks/use-admin-user-progress"
 import { useAdminUserWellness } from "@/hooks/use-admin-user-wellness"
@@ -61,7 +62,7 @@ export function UserProgressPanel({ userId }: Props) {
             <h3 className="text-xl font-semibold">Progreso del usuario</h3>
             <span className="text-xs px-2 py-1 rounded-full bg-emerald-100 text-emerald-700">Nuevo panel</span>
           </div>
-          <p className="text-sm text-muted-foreground">Peso, bienestar y relación entre sueño y rendimiento</p>
+          <p className="text-sm text-muted-foreground">Peso, medidas corporales, bienestar y relación entre sueño y rendimiento</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button
@@ -172,14 +173,19 @@ export function UserProgressPanel({ userId }: Props) {
       </div>
 
       <Tabs defaultValue="weight" className="space-y-4">
-        <TabsList>
+        <TabsList className="flex flex-wrap h-auto">
           <TabsTrigger value="weight">Peso</TabsTrigger>
+          <TabsTrigger value="measurements">Medidas</TabsTrigger>
           <TabsTrigger value="wellness">Bienestar</TabsTrigger>
           <TabsTrigger value="sleep-performance">Sueño vs rendimiento</TabsTrigger>
         </TabsList>
 
         <TabsContent value="weight" className="space-y-4">
           <UserWeightHistory userId={userId} />
+        </TabsContent>
+
+        <TabsContent value="measurements" className="space-y-4">
+          <UserMeasurementsHistory userId={userId} />
         </TabsContent>
 
         <TabsContent value="wellness" className="space-y-4">
