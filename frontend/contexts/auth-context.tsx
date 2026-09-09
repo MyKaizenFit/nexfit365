@@ -17,6 +17,7 @@ import { AUTH_ENDPOINTS, buildApiUrl, getAuthHeaders as buildAuthRequestHeaders,
 import { isTransientAuthFailure, sleep } from '@/lib/auth-transient-errors'
 import { isAdminJwtPayload, parseJwtPayload } from '@/lib/jwt'
 import { dismissBlockingOverlays } from '@/lib/dismiss-blocking-overlays'
+import { clearUserLocalDataOnLogout } from '@/lib/user-local-storage'
 import { useAuthNotifications } from '@/hooks/use-auth-notifications'
 
 // Estado de autenticación
@@ -424,14 +425,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const authService = getAuthService()
     const accessTokenToRevoke = authService.getAccessToken()
     const refreshTokenToRevoke = authService.getRefreshToken()
+    const currentUserId = state.user?.id
 
     if (typeof window !== 'undefined') {
       localStorage.setItem('auth_logout_in_progress', 'true')
+      clearUserLocalDataOnLogout(currentUserId)
     }
 
-    localStorage.removeItem('initial_form_completed')
-    localStorage.removeItem('user_profile')
-    localStorage.removeItem('form_version')
     setInitialRegistrationCookie(false)
     authService.clearTokens()
 
