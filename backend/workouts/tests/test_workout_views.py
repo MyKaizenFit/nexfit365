@@ -434,6 +434,71 @@ class TestWorkoutLogViewSet:
         assert completed_log.notes == 'Final'
         assert completed_log.exercises_data[0]['exercise_id'] == 'a'
 
+    def test_stale_completed_true_payload_currently_overwrites_finished_log(
+        self, auth_client, user, workout_day
+    ):
+        """CHARACTERIZATION of the remaining hole: completed=true is not ignored.
+
+        Existing guards only skip writes when requested_completed is not True.
+        A delayed autosave that still sends completed=true overwrites notes/sets.
+        """
+        completed_log = WorkoutLog.objects.create(
+            user=user,
+            workout_day=workout_day,
+            date=timezone.localdate(),
+            duration_minutes=40,
+            completed=True,
+            notes='Final',
+            exercises_data=[{'exercise_id': 'final', 'sets': [{'reps': 12, 'weight': 80}]}],
+        )
+
+        response = auth_client.post('/api/workout-logs/upsert_today/', {
+            'workout_day': str(workout_day.id),
+            'completed': True,
+            'duration_minutes': 12,
+            'notes': 'Autoguardado tardío completed=true',
+            'exercises_data': [{'exercise_id': 'stale', 'sets': [{'reps': 8, 'weight': 40}]}],
+        }, format='json')
+
+        assert response.status_code == status.HTTP_200_OK
+        completed_log.refresh_from_db()
+        assert completed_log.completed is True
+        assert completed_log.notes == 'Autoguardado tardío completed=true'
+        assert completed_log.duration_minutes == 12
+        assert completed_log.exercises_data[0]['exercise_id'] == 'stale'
+
+    @pytest.mark.xfail(
+        strict=True,
+        reason='P0: stale completed=true payload still overwrites a finished log',
+    )
+    def test_stale_completed_true_payload_must_not_overwrite_finished_log(
+        self, auth_client, user, workout_day
+    ):
+        """EXPECTED product behavior until the workout persistence fix."""
+        completed_log = WorkoutLog.objects.create(
+            user=user,
+            workout_day=workout_day,
+            date=timezone.localdate(),
+            duration_minutes=40,
+            completed=True,
+            notes='Final',
+            exercises_data=[{'exercise_id': 'final', 'sets': [{'reps': 12, 'weight': 80}]}],
+        )
+
+        response = auth_client.post('/api/workout-logs/upsert_today/', {
+            'workout_day': str(workout_day.id),
+            'completed': True,
+            'duration_minutes': 12,
+            'notes': 'Autoguardado tardío completed=true',
+            'exercises_data': [{'exercise_id': 'stale', 'sets': [{'reps': 8, 'weight': 40}]}],
+        }, format='json')
+
+        assert response.status_code == status.HTTP_200_OK
+        completed_log.refresh_from_db()
+        assert completed_log.notes == 'Final'
+        assert completed_log.duration_minutes == 40
+        assert completed_log.exercises_data[0]['exercise_id'] == 'final'
+
     def test_upsert_today_rejects_other_users_workout_day(
         self, auth_client, user2, exercise
     ):

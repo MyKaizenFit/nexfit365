@@ -8,6 +8,11 @@ import { useNutrition } from '@/hooks/use-nutrition'
 import { getAuthHeaders, getMultipartAuthHeaders, buildApiUrl } from '@/lib/api'
 import { todayLocalDate } from '@/lib/local-date'
 import { lookupMealOptionsById, pickCanonicalMacro } from '@/lib/meal-preview'
+import { getMealSelectionsStorageKey, removeLegacyMealSelectionsKey } from '@/lib/user-local-storage'
+
+type BackendMealSelectionsResult =
+  | { status: 'success'; selections: Record<string, MealOption> }
+  | { status: 'error' }
 
 interface DailyMeal {
   id: string
@@ -36,7 +41,8 @@ interface DailyMacros {
 }
 
 export function useDailyMeals() {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, user } = useAuth()
+  const userId = user?.id
   const { currentPlan } = useNutrition()
   type PlanMealSlot = {
     id: string
@@ -333,71 +339,71 @@ export function useDailyMeals() {
     }
   }, [macros])
 
-  // Guardar selecciones en localStorage como backup
+  // Guardar selecciones en localStorage como backup (user-scoped; never date-only)
   const saveSelectionsToStorage = useCallback((meals: DailyMeal[]) => {
-    if (typeof window !== 'undefined') {
-      const today = todayLocalDate()
-      const selections = meals.reduce((acc, meal) => {
-        if (meal.selectedOption) {
-          acc[meal.id] = {
-            mealId: meal.id,
-            optionId: meal.selectedOption.id,
-            option: meal.selectedOption,
-            isCompleted: meal.isCompleted === true,
-            isSkipped: meal.isSkipped === true,
-          }
+    if (typeof window === 'undefined' || userId == null) return
+    const today = todayLocalDate()
+    const key = getMealSelectionsStorageKey(userId, today)
+    const selections = meals.reduce((acc, meal) => {
+      if (meal.selectedOption) {
+        acc[meal.id] = {
+          mealId: meal.id,
+          optionId: meal.selectedOption.id,
+          option: meal.selectedOption,
+          isCompleted: meal.isCompleted === true,
+          isSkipped: meal.isSkipped === true,
         }
-        return acc
-      }, {} as Record<string, any>)
-      
-      localStorage.setItem(`meal-selections-${today}`, JSON.stringify(selections))
-    }
-  }, [planMealOptions, planOptionsByMealId])
+      }
+      return acc
+    }, {} as Record<string, any>)
 
-  // Cargar selecciones desde localStorage como backup
+    if (Object.keys(selections).length === 0) {
+      localStorage.removeItem(key)
+    } else {
+      localStorage.setItem(key, JSON.stringify(selections))
+    }
+  }, [userId])
+
+  // Cargar selecciones desde localStorage como backup (current user only; never legacy)
   const loadSelectionsFromStorage = useCallback((meals: DailyMeal[]) => {
-    if (typeof window !== 'undefined') {
-      const today = todayLocalDate()
-      const stored = localStorage.getItem(`meal-selections-${today}`)
-      
-      if (stored) {
-        try {
-          const selections = JSON.parse(stored)
-          
-          // Validar que selections sea un objeto válido
-          if (!selections || typeof selections !== 'object' || Array.isArray(selections)) {
-            localStorage.removeItem(`meal-selections-${today}`)
-            return meals
-          }
-          
-          
-          return meals.map(meal => {
-            const selection = selections[meal.id]
-            if (selection && selection.option && typeof selection.option === 'object') {
-              // Validar que la opción tenga la estructura correcta
-              if (selection.option.id && selection.option.name) {
-                // Selección ≠ completada. Compatibilidad: datos viejos sin isCompleted no fuerzan true.
-                const storedCompleted = selection.isCompleted === true
-                return {
-                  ...meal,
-                  selectedOption: selection.option,
-                  isCompleted: storedCompleted,
-                }
+    if (typeof window === 'undefined' || userId == null) return meals
+    const today = todayLocalDate()
+    const key = getMealSelectionsStorageKey(userId, today)
+    const stored = localStorage.getItem(key)
+
+    if (stored) {
+      try {
+        const selections = JSON.parse(stored)
+
+        if (!selections || typeof selections !== 'object' || Array.isArray(selections)) {
+          localStorage.removeItem(key)
+          return meals
+        }
+
+        return meals.map(meal => {
+          const selection = selections[meal.id]
+          if (selection && selection.option && typeof selection.option === 'object') {
+            if (selection.option.id && selection.option.name) {
+              // Selección ≠ completada. Compatibilidad: datos viejos sin isCompleted no fuerzan true.
+              const storedCompleted = selection.isCompleted === true
+              return {
+                ...meal,
+                selectedOption: selection.option,
+                isCompleted: storedCompleted,
               }
             }
-            return meal
-          })
-        } catch (error) {
-          // Limpiar datos corruptos
-          try {
-            localStorage.removeItem(`meal-selections-${today}`)
-          } catch (e) {
           }
+          return meal
+        })
+      } catch (error) {
+        try {
+          localStorage.removeItem(key)
+        } catch (e) {
         }
       }
     }
     return meals
-  }, [])
+  }, [userId])
 
   // Seleccionar/cambiar plato = planificación. Solo conserva completed si ya estaba consumida.
   const selectMealOption = useCallback(async (mealId: string, option: MealOption) => {
@@ -509,7 +515,7 @@ export function useDailyMeals() {
   }, [calculateTotalMacros, meals, saveSelectionsToStorage])
 
   // Cargar selecciones del backend desde MealLog (incluye completadas y no completadas)
-  const loadSelectionsFromBackend = useCallback(async (date: string) => {
+  const loadSelectionsFromBackend = useCallback(async (date: string): Promise<BackendMealSelectionsResult> => {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(`${buildApiUrl('nutrition/daily-meal-selections/')}?date=${date}`, {
@@ -519,7 +525,7 @@ export function useDailyMeals() {
       })
 
       if (!response.ok) {
-        return null
+        return { status: 'error' }
       }
 
       const data = await response.json()
@@ -609,10 +615,10 @@ export function useDailyMeals() {
 
       setLogMetaByKey(nextMetaByKey)
 
-      return Object.keys(selectionsMap).length > 0 ? selectionsMap : null
+      return { status: 'success', selections: selectionsMap }
     } catch (error) {
       setLogMetaByKey({})
-      return null
+      return { status: 'error' }
     }
   }, [])
 
@@ -666,8 +672,9 @@ export function useDailyMeals() {
 
         if (response.ok) {
           // Recargar selecciones del backend para actualizar los macros
-          const selections = await loadSelectionsFromBackend(today)
-          if (selections) {
+          const result = await loadSelectionsFromBackend(today)
+          if (result.status === 'success' && Object.keys(result.selections).length > 0) {
+            const selections = result.selections
             // Cargar estado de completado desde el backend
             const headers = await getAuthHeaders()
             const statusResponse = await fetch(`${buildApiUrl('nutrition/daily-meal-selections/')}?date=${today}`, {
@@ -1019,6 +1026,23 @@ export function useDailyMeals() {
     }
   }, [currentPlan])
 
+  const resolveMealsWithSelections = useCallback(async (dailyMeals: DailyMeal[], date: string) => {
+    const result = await loadSelectionsFromBackend(date)
+    if (result.status === 'success') {
+      removeLegacyMealSelectionsKey(date)
+      if (Object.keys(result.selections).length === 0) {
+        if (typeof window !== 'undefined' && userId != null) {
+          localStorage.removeItem(getMealSelectionsStorageKey(userId, date))
+        }
+        return dailyMeals
+      }
+      const applied = await applySelectionsToMeals(dailyMeals, result.selections, date)
+      saveSelectionsToStorage(applied)
+      return applied
+    }
+    return loadSelectionsFromStorage(dailyMeals)
+  }, [applySelectionsToMeals, loadSelectionsFromBackend, loadSelectionsFromStorage, saveSelectionsToStorage, userId])
+
   // Cargar datos iniciales (solo una vez al montar o cuando cambie el plan)
   useEffect(() => {
     if (!isAuthenticated) {
@@ -1039,45 +1063,19 @@ export function useDailyMeals() {
         
         // Generar comidas del día usando los slots recién cargados
         const dailyMeals = generateDailyMeals(loadedSlots)
-        
-        // Intentar cargar desde el backend primero
-        const backendSelections = await loadSelectionsFromBackend(today)
-        
+        const mealsWithSelections = await resolveMealsWithSelections(dailyMeals, today)
+
         if (!isMounted) return
-        
-        if (backendSelections) {
-          // Usar selecciones del backend (incluye completadas y no completadas)
-          const mealsWithBackendSelections = await applySelectionsToMeals(dailyMeals, backendSelections, today)
-          setMeals(mealsWithBackendSelections)
-          
-          // Calcular macros solo de comidas completadas
-          const completedMeals = mealsWithBackendSelections.filter(m => m.isCompleted)
-          const initialMacros = calculateTotalMacros(completedMeals)
-          setMacros(prev => ({
-            ...initialMacros,
-            caloriesGoal: prev.caloriesGoal,
-            proteinGoal: prev.proteinGoal,
-            carbsGoal: prev.carbsGoal,
-            fatGoal: prev.fatGoal,
-          }))
-          
-          // Sincronizar localStorage con backend
-          saveSelectionsToStorage(mealsWithBackendSelections)
-        } else {
-          // Usar localStorage como backup
-          const mealsWithLocalSelections = loadSelectionsFromStorage(dailyMeals)
-          setMeals(mealsWithLocalSelections)
-          
-          // Calcular macros
-          const initialMacros = calculateTotalMacros(mealsWithLocalSelections)
-          setMacros(prev => ({
-            ...initialMacros,
-            caloriesGoal: prev.caloriesGoal,
-            proteinGoal: prev.proteinGoal,
-            carbsGoal: prev.carbsGoal,
-            fatGoal: prev.fatGoal,
-          }))
-        }
+
+        setMeals(mealsWithSelections)
+        const initialMacros = calculateTotalMacros(mealsWithSelections)
+        setMacros(prev => ({
+          ...initialMacros,
+          caloriesGoal: prev.caloriesGoal,
+          proteinGoal: prev.proteinGoal,
+          carbsGoal: prev.carbsGoal,
+          fatGoal: prev.fatGoal,
+        }))
       } catch (error) {
         if (!isMounted) return
         const fallbackMeals = generateDailyMeals(planMealSlots)
@@ -1102,7 +1100,7 @@ export function useDailyMeals() {
     return () => {
       isMounted = false
     }
-  }, [isAuthenticated, currentPlan?.id]) // Solo cuando cambie el ID del plan, no el objeto completo
+  }, [isAuthenticated, userId, currentPlan?.id]) // Solo cuando cambie el ID del plan, no el objeto completo
 
   // Obtener opciones para una comida específica
   const getMealOptions = useCallback((mealId: string): MealOption[] => {
@@ -1133,11 +1131,8 @@ export function useDailyMeals() {
         const today = todayLocalDate()
         const loadedSlots = await loadPlanMealOptions(today)
         const dailyMeals = generateDailyMeals(loadedSlots)
-        
-        // Cargar desde backend
-        const backendSelections = await loadSelectionsFromBackend(today)
-        const mealsWithSelections = await applySelectionsToMeals(dailyMeals, backendSelections, today)
-        
+        const mealsWithSelections = await resolveMealsWithSelections(dailyMeals, today)
+
         setMeals(mealsWithSelections)
         const initialMacros = calculateTotalMacros(mealsWithSelections)
         setMacros(prev => ({
@@ -1147,9 +1142,6 @@ export function useDailyMeals() {
           carbsGoal: prev.carbsGoal,
           fatGoal: prev.fatGoal,
         }))
-        
-        // Sincronizar localStorage
-        saveSelectionsToStorage(mealsWithSelections)
       } catch (error) {
         const today = todayLocalDate()
         const loadedSlots = await loadPlanMealOptions(today).catch(() => planMealSlots)
@@ -1162,7 +1154,7 @@ export function useDailyMeals() {
         setLoading(false)
       }
     }
-  }, [isAuthenticated, generateDailyMeals, calculateTotalMacros, loadPlanMealOptions, planMealSlots, loadSelectionsFromBackend, applySelectionsToMeals, saveSelectionsToStorage, loadSelectionsFromStorage])
+  }, [isAuthenticated, generateDailyMeals, calculateTotalMacros, loadPlanMealOptions, planMealSlots, resolveMealsWithSelections, loadSelectionsFromStorage])
 
   return {
     meals,
