@@ -245,6 +245,9 @@ class WorkoutProgramMinimalSerializer(EncodingFixMixin, serializers.ModelSeriali
         ]
     
     def get_days_count(self, obj) -> int:
+        annotated = getattr(obj, "days_count_annotated", None)
+        if annotated is not None:
+            return int(annotated)
         return obj.days.count()
 
 

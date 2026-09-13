@@ -255,6 +255,13 @@ class Exercise(TimeStampedModel):
 
     def get_substitutes(self):
         """Retorna ejercicios sustitutos ordenados por prioridad."""
+        prefetched = getattr(self, "_prefetched_objects_cache", None)
+        if prefetched is not None and "substitutions" in prefetched:
+            relations = sorted(
+                prefetched["substitutions"],
+                key=lambda rel: (rel.priority, rel.created_at),
+            )
+            return [rel.substitute for rel in relations]
         return [
             relation.substitute
             for relation in self.substitutions.all().select_related("substitute").order_by("priority", "created_at")
@@ -422,11 +429,17 @@ class WorkoutProgram(TimeStampedModel):
     @property
     def total_days(self):
         """Total de días en el programa"""
+        cache = getattr(self, "_prefetched_objects_cache", None)
+        if cache is not None and "days" in cache:
+            return len(cache["days"])
         return self.days.count()
     
     @property
     def training_days(self):
         """Días de entrenamiento (no descanso)"""
+        cache = getattr(self, "_prefetched_objects_cache", None)
+        if cache is not None and "days" in cache:
+            return sum(1 for day in cache["days"] if not day.is_rest_day)
         return self.days.filter(is_rest_day=False).count()
 
     def save(self, *args, **kwargs):
@@ -508,6 +521,9 @@ class WorkoutDay(TimeStampedModel):
     @property
     def total_exercises(self):
         """Total de ejercicios en este día"""
+        cache = getattr(self, "_prefetched_objects_cache", None)
+        if cache is not None and "exercises" in cache:
+            return len(cache["exercises"])
         return self.exercises.count()
 
 
