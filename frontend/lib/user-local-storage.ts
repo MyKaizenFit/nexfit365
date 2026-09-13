@@ -5,6 +5,8 @@
  * account-specific keys without localStorage.clear().
  */
 
+import { clearInFlightRequests } from './request-coalescer'
+
 const GLOBAL_SAFE_KEYS = new Set([
   'nexfit365_cookie_consent',
   'remember_session',
@@ -108,6 +110,7 @@ function removeMatchingKeys(storage: Storage, shouldRemove: (key: string) => boo
 }
 
 export function clearUserLocalDataOnLogout(currentUserId?: string | number | null): void {
+  clearInFlightRequests()
   if (typeof window === 'undefined') return
   const userId = normalizedUserId(currentUserId)
   removeMatchingKeys(localStorage, (key) => shouldRemoveLocalStorageKey(key, userId))
