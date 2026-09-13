@@ -10,6 +10,8 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.shortcuts import get_object_or_404
 from django.db import DatabaseError, IntegrityError, transaction
 from django.db import models as django_db_models
+from django.utils import timezone
+from datetime import timezone as datetime_timezone
 import logging
 import uuid
 from drf_spectacular.utils import extend_schema, OpenApiExample
@@ -404,6 +406,38 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
         if value is None:
             return False
         return str(value).strip().lower() in {'1', 'true', 'yes', 'y', 'si', 'sí'}
+
+    def _parse_client_updated_at(self, raw):
+        from django.utils.dateparse import parse_datetime
+
+        if raw is None or str(raw).strip() == '':
+            return None
+        parsed = parse_datetime(str(raw).strip())
+        if parsed is None:
+            return None
+        if timezone.is_naive(parsed):
+            parsed = timezone.make_aware(parsed, datetime_timezone.utc)
+        return parsed.astimezone(datetime_timezone.utc)
+
+    def _truncate_dt_ms(self, dt):
+        aware = dt
+        if timezone.is_naive(aware):
+            aware = timezone.make_aware(aware, datetime_timezone.utc)
+        aware = aware.astimezone(datetime_timezone.utc)
+        return aware.replace(microsecond=(aware.microsecond // 1000) * 1000)
+
+    def _is_stale_completed_write(self, log, requested_completed, request_data):
+        """Ignore completed=true writes that are older than the saved log.
+
+        Legitimate completed edits must send based_on_updated_at equal to the
+        current row. Missing/older tokens are treated as delayed autosaves.
+        """
+        if not log.completed or requested_completed is not True:
+            return False
+        client_dt = self._parse_client_updated_at(request_data.get('based_on_updated_at'))
+        if client_dt is None:
+            return True
+        return self._truncate_dt_ms(client_dt) < self._truncate_dt_ms(log.updated_at)
     
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):
@@ -526,10 +560,18 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
                     if log is None:
                         raise
 
+            # Row lock is held until this atomic block commits, so the stale
+            # completed check and save cannot interleave with another writer.
             if log.completed and requested_completed is not True:
                 # Ignore delayed draft autosaves (completed omitted or false) so they
                 # cannot replace the final duration, notes or exercise data.
                 return Response({'log': WorkoutLogSerializer(log).data}, status=status.HTTP_200_OK)
+
+            if self._is_stale_completed_write(log, requested_completed, request.data):
+                return Response(
+                    {'log': WorkoutLogSerializer(log).data, 'stale': True},
+                    status=status.HTTP_409_CONFLICT,
+                )
 
             for field in ['notes', 'duration_minutes', 'rating', 'exercises_data', 'calories_burned', 'average_heart_rate']:
                 if field in request.data:
