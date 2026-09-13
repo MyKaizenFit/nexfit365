@@ -2,13 +2,15 @@ import fs from 'fs'
 import path from 'path'
 
 describe('meal dashboard sync badge', () => {
-  it('[characterization] cloud badge is static and does not depend on syncing or errors', () => {
+  it('cloud badge derives from syncing and syncError', () => {
     const src = fs.readFileSync(
       path.join(process.cwd(), 'components/dashboard/meal-dashboard.tsx'),
       'utf8',
     )
     expect(src).toContain('Sincronizado en la nube')
-    expect(src).not.toMatch(/Sincronizado en la nube[\s\S]{0,200}syncing/)
-    expect(src).not.toMatch(/syncing[\s\S]{0,200}Sincronizado en la nube/)
+    expect(src).toContain('Guardando')
+    expect(src).toContain('Sin sincronizar')
+    expect(src).toMatch(/syncing \? 'Guardando/)
+    expect(src).toMatch(/syncError \? 'Sin sincronizar'/)
   })
 })

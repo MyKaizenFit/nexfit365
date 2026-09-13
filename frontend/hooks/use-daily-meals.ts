@@ -1,11 +1,10 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '@/contexts/auth-context'
-import { nutritionService, MealOption, MealLog } from '@/lib/nutrition-service'
-import { dailyMealSelectionsService } from '@/lib/daily-meal-selections-service'
+import { nutritionService, MealOption } from '@/lib/nutrition-service'
 import { useNutrition } from '@/hooks/use-nutrition'
-import { getAuthHeaders, getMultipartAuthHeaders, buildApiUrl } from '@/lib/api'
+import { getAuthHeaders, authenticatedFetch, buildApiUrl } from '@/lib/api'
 import { todayLocalDate } from '@/lib/local-date'
 import { lookupMealOptionsById, pickCanonicalMacro } from '@/lib/meal-preview'
 import { getMealSelectionsStorageKey, removeLegacyMealSelectionsKey } from '@/lib/user-local-storage'
@@ -13,6 +12,11 @@ import { getMealSelectionsStorageKey, removeLegacyMealSelectionsKey } from '@/li
 type BackendMealSelectionsResult =
   | { status: 'success'; selections: Record<string, MealOption> }
   | { status: 'error' }
+
+function requireOk(response: Response, message: string): Response {
+  if (!response.ok) throw new Error(message)
+  return response
+}
 
 interface DailyMeal {
   id: string
@@ -54,6 +58,8 @@ export function useDailyMeals() {
   }
 
   const [meals, setMeals] = useState<DailyMeal[]>([])
+  const mealsRef = useRef<DailyMeal[]>([])
+  mealsRef.current = meals
   const [macros, setMacros] = useState<DailyMacros>({
     caloriesConsumed: 0,
     caloriesGoal: 2000,
@@ -67,6 +73,12 @@ export function useDailyMeals() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [syncing, setSyncing] = useState(false)
+  const [syncError, setSyncError] = useState<string | null>(null)
+  const slotWriteChainRef = useRef<Map<string, Promise<void>>>(new Map())
+  const slotGenerationRef = useRef<Map<string, number>>(new Map())
+  const slotErrorRef = useRef<Map<string, boolean>>(new Map())
+  const pendingSyncCountRef = useRef(0)
+  const mountedRef = useRef(true)
   const [planMealOptions, setPlanMealOptions] = useState<Record<string, MealOption[]>>({})
   const [planMealSlots, setPlanMealSlots] = useState<PlanMealSlot[]>([])
   const [hasUserPlan, setHasUserPlan] = useState(false)
@@ -405,114 +417,136 @@ export function useDailyMeals() {
     return meals
   }, [userId])
 
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
+
+  const refreshSyncStatus = useCallback(() => {
+    if (!mountedRef.current) return
+    setSyncing(pendingSyncCountRef.current > 0)
+    const hasError = Array.from(slotErrorRef.current.values()).some(Boolean)
+    setSyncError(hasError ? 'Los cambios no se han podido sincronizar' : null)
+  }, [])
+
+  const enqueueSlotWrite = useCallback((slotId: string, write: (generation: number) => Promise<void>) => {
+    const generation = (slotGenerationRef.current.get(slotId) || 0) + 1
+    slotGenerationRef.current.set(slotId, generation)
+    pendingSyncCountRef.current += 1
+    refreshSyncStatus()
+
+    const previous = slotWriteChainRef.current.get(slotId) || Promise.resolve()
+    const next = previous.catch(() => undefined).then(async () => {
+      try {
+        await write(generation)
+        if (slotGenerationRef.current.get(slotId) === generation) {
+          slotErrorRef.current.set(slotId, false)
+        }
+      } catch {
+        if (slotGenerationRef.current.get(slotId) === generation) {
+          slotErrorRef.current.set(slotId, true)
+        }
+      } finally {
+        pendingSyncCountRef.current = Math.max(0, pendingSyncCountRef.current - 1)
+        if (slotWriteChainRef.current.get(slotId) === next) {
+          slotWriteChainRef.current.delete(slotId)
+        }
+        refreshSyncStatus()
+      }
+    })
+
+    slotWriteChainRef.current.set(slotId, next)
+    void next.catch(() => undefined)
+    return next
+  }, [refreshSyncStatus])
+
   // Seleccionar/cambiar plato = planificación. Solo conserva completed si ya estaba consumida.
   const selectMealOption = useCallback(async (mealId: string, option: MealOption) => {
-    let mealTypeForSync: string | null = null
-    let keepCompleted = false
-    let planMealId: string | undefined
+    const current = mealsRef.current.find(meal => meal.id === mealId)
+    const keepCompleted = Boolean(current?.isCompleted && !current?.isSkipped)
+    const mealTypeForSync = current?.mealType || null
+    const planMealId = current?.id && !String(current.id).startsWith('meal-') ? current.id : undefined
 
-    setMeals(prevMeals => {
-      const current = prevMeals.find(meal => meal.id === mealId)
-      keepCompleted = Boolean(current?.isCompleted && !current?.isSkipped)
-      mealTypeForSync = current?.mealType || null
-      planMealId = current?.id && !String(current.id).startsWith('meal-') ? current.id : undefined
+    const updatedMeals = mealsRef.current.map(meal =>
+      meal.id === mealId
+        ? {
+            ...meal,
+            selectedOption: option,
+            isCompleted: keepCompleted,
+            isSkipped: false,
+            skipReason: null,
+          }
+        : meal
+    )
+    mealsRef.current = updatedMeals
+    saveSelectionsToStorage(updatedMeals)
+    setMacros(calculateTotalMacros(updatedMeals))
+    setMeals(updatedMeals)
 
-      const updatedMeals = prevMeals.map(meal =>
-        meal.id === mealId
-          ? {
-              ...meal,
-              selectedOption: option,
-              isCompleted: keepCompleted,
-              isSkipped: false,
-              skipReason: null,
-            }
-          : meal
-      )
+    if (!mealTypeForSync) return
 
-      saveSelectionsToStorage(updatedMeals)
-      setMacros(calculateTotalMacros(updatedMeals))
-      return updatedMeals
+    const requestData: Record<string, unknown> = {
+      date: todayLocalDate(),
+      meal_type: mealTypeForSync,
+      plan_meal_id: planMealId,
+      calories: option.calories || 0,
+      protein: option.protein || 0,
+      carbs: option.carbs || 0,
+      fat: option.fat || 0,
+      skip_meal: false,
+      completed: keepCompleted,
+      custom_description: option.customDescription || option.name || 'Comida seleccionada',
+      substitution_details: option.substitution_details || [],
+    }
+
+    if (option.recipeId) {
+      requestData.recipe_id = String(option.recipeId)
+    } else if (option.id && String(option.id).includes('recipe-')) {
+      requestData.recipe_id = String(option.id).split('recipe-').pop()
+    }
+
+    void enqueueSlotWrite(mealId, async () => {
+      const response = await authenticatedFetch('nutrition/daily-meal-selections/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json; charset=utf-8' },
+        body: JSON.stringify(requestData),
+      })
+      requireOk(response, 'No se pudo guardar la selección')
     })
-
-    setTimeout(async () => {
-      try {
-        setSyncing(true)
-        const today = todayLocalDate()
-        if (!mealTypeForSync) return
-
-        const headers = await getAuthHeaders()
-        const requestData: any = {
-          date: today,
-          meal_type: mealTypeForSync,
-          plan_meal_id: planMealId,
-          calories: option.calories || 0,
-          protein: option.protein || 0,
-          carbs: option.carbs || 0,
-          fat: option.fat || 0,
-          skip_meal: false,
-          completed: keepCompleted,
-          custom_description: option.customDescription || option.name || 'Comida seleccionada',
-          substitution_details: option.substitution_details || [],
-        }
-
-        if (option.recipeId) {
-          requestData.recipe_id = String(option.recipeId)
-        } else if (option.id && String(option.id).includes('recipe-')) {
-          requestData.recipe_id = String(option.id).split('recipe-').pop()
-        }
-
-        await fetch(buildApiUrl('nutrition/daily-meal-selections/'), {
-          credentials: 'include',
-          headers: {
-            ...headers,
-            'Content-Type': 'application/json; charset=utf-8',
-          },
-          method: 'POST',
-          body: JSON.stringify(requestData),
-        })
-      } catch (error) {
-      } finally {
-        setSyncing(false)
-      }
-    }, 100)
-  }, [calculateTotalMacros, saveSelectionsToStorage])
+  }, [calculateTotalMacros, enqueueSlotWrite, saveSelectionsToStorage])
 
   const deselectMealOption = useCallback(async (mealId: string) => {
-    const meal = meals.find(m => m.id === mealId)
+    const meal = mealsRef.current.find(m => m.id === mealId)
 
-    setMeals(prevMeals => {
-      const updatedMeals = prevMeals.map(currentMeal =>
-        currentMeal.id === mealId
-          ? { ...currentMeal, selectedOption: null, isCompleted: false, isSkipped: false, skipReason: null, photo: null, mealLogId: null }
-          : currentMeal
-      )
-      saveSelectionsToStorage(updatedMeals)
-      setMacros(calculateTotalMacros(updatedMeals))
-      return updatedMeals
-    })
+    const updatedMeals = mealsRef.current.map(currentMeal =>
+      currentMeal.id === mealId
+        ? { ...currentMeal, selectedOption: null, isCompleted: false, isSkipped: false, skipReason: null, photo: null, mealLogId: null }
+        : currentMeal
+    )
+    mealsRef.current = updatedMeals
+    saveSelectionsToStorage(updatedMeals)
+    setMacros(calculateTotalMacros(updatedMeals))
+    setMeals(updatedMeals)
 
     if (!meal?.mealType) return
 
-    try {
-      setSyncing(true)
-      const today = todayLocalDate()
-      const headers = await getAuthHeaders()
-      const params = new URLSearchParams({ date: today })
-      if (meal.id && !String(meal.id).startsWith('meal-')) {
-        params.set('plan_meal_id', String(meal.id))
-      } else {
-        params.set('meal_type', meal.mealType)
-      }
+    const today = todayLocalDate()
+    const params = new URLSearchParams({ date: today })
+    if (meal.id && !String(meal.id).startsWith('meal-')) {
+      params.set('plan_meal_id', String(meal.id))
+    } else {
+      params.set('meal_type', meal.mealType)
+    }
 
-      await fetch(`${buildApiUrl('nutrition/daily-meal-selections/')}?${params.toString()}`, {
-        credentials: 'include',
-        headers,
+    void enqueueSlotWrite(mealId, async () => {
+      const response = await authenticatedFetch(`nutrition/daily-meal-selections/?${params.toString()}`, {
         method: 'DELETE',
       })
-    } finally {
-      setSyncing(false)
-    }
-  }, [calculateTotalMacros, meals, saveSelectionsToStorage])
+      requireOk(response, 'No se pudo eliminar la selección')
+    })
+  }, [calculateTotalMacros, enqueueSlotWrite, saveSelectionsToStorage])
 
   // Cargar selecciones del backend desde MealLog (incluye completadas y no completadas)
   const loadSelectionsFromBackend = useCallback(async (date: string): Promise<BackendMealSelectionsResult> => {
@@ -624,121 +658,50 @@ export function useDailyMeals() {
 
   // Marcar comida como completada (solo en vista diaria)
   const markMealCompleted = useCallback(async (mealId: string) => {
-    const meal = meals.find(m => m.id === mealId)
+    const meal = mealsRef.current.find(m => m.id === mealId)
     if (!meal || !meal.selectedOption) {
       return
     }
 
-    // Actualizar estado inmediatamente
-    setMeals(prevMeals => {
-      const updatedMeals = prevMeals.map(m => 
-        m.id === mealId 
-          ? { ...m, isCompleted: true, isSkipped: false, skipReason: null }
-          : m
-      )
-      
-      // Actualizar macros (ahora incluye esta comida completada)
-      const newMacros = calculateTotalMacros(updatedMeals)
-      setMacros(newMacros)
-      
-      return updatedMeals
-    })
+    const selectedOption = meal.selectedOption
+    const mealType = meal.mealType
 
-    // Actualizar en el backend
-    try {
-      const today = todayLocalDate()
-      const mealType = meal.mealType
-      if (mealType) {
-        const headers = await getAuthHeaders()
-        const response = await fetch(buildApiUrl('nutrition/daily-meal-selections/'), {
-        credentials: 'include',
-          headers,
-          method: 'POST',
-          body: JSON.stringify({
-            date: today,
-            meal_type: mealType,
-            plan_meal_id: meal.id && !String(meal.id).startsWith('meal-') ? meal.id : undefined,
-            recipe_id: meal.selectedOption.recipeId || (String(meal.selectedOption.id).includes('recipe-') ? String(meal.selectedOption.id).split('recipe-').pop() : meal.selectedOption.id),
-            calories: meal.selectedOption.calories || 0,
-            protein: meal.selectedOption.protein || 0,
-            carbs: meal.selectedOption.carbs || 0,
-            fat: meal.selectedOption.fat || 0,
-            skip_meal: false,
-            completed: true, // Ahora sí está completada
-            custom_description: meal.selectedOption.customDescription || meal.selectedOption.name || meal.name,
-            substitution_details: meal.selectedOption.substitution_details || []
-          })
-        })
+    const updatedMeals = mealsRef.current.map(m =>
+      m.id === mealId
+        ? { ...m, isCompleted: true, isSkipped: false, skipReason: null }
+        : m
+    )
+    mealsRef.current = updatedMeals
+    saveSelectionsToStorage(updatedMeals)
+    setMacros(calculateTotalMacros(updatedMeals))
+    setMeals(updatedMeals)
 
-        if (response.ok) {
-          // Recargar selecciones del backend para actualizar los macros
-          const result = await loadSelectionsFromBackend(today)
-          if (result.status === 'success' && Object.keys(result.selections).length > 0) {
-            const selections = result.selections
-            // Cargar estado de completado desde el backend
-            const headers = await getAuthHeaders()
-            const statusResponse = await fetch(`${buildApiUrl('nutrition/daily-meal-selections/')}?date=${today}`, {
-        credentials: 'include',
-              headers,
-              method: 'GET',
-            })
-            
-            if (statusResponse.ok) {
-              const data = await statusResponse.json()
-              const logs = data.selections || []
-              const completedMap: Record<string, boolean> = {}
-              const photoMap: Record<string, string | null> = {}
-              const logIdMap: Record<string, string> = {}
-              const skippedMap: Record<string, boolean> = {}
-              const skippedReasonMap: Record<string, string | null> = {}
-              logs.forEach((log: any) => {
-                const mt = String(log.meal_type || '')
-                const k = String(log.plan_meal_id || mt)
-                if (k) {
-                  completedMap[k] = log.completed || false
-                  photoMap[k] = log.photo ? String(log.photo) : null
-                  logIdMap[k] = String(log.id)
-                  skippedMap[k] = Boolean(log.is_skipped)
-                  skippedReasonMap[k] = log.skip_reason ? String(log.skip_reason) : null
-                }
-              })
-              
-              // Actualizar meals con las selecciones y estado de completado
-              setMeals(currentMeals => {
-                const updatedMeals = currentMeals.map(meal => {
-                  const selection = selections[meal.id] || selections[meal.mealType]
-                  const mapKey = String(meal.id)
-                  const fallbackKey = meal.mealType
-                  const photo = photoMap[mapKey] ?? photoMap[fallbackKey] ?? null
-                  const mealLogId = logIdMap[mapKey] ?? logIdMap[fallbackKey] ?? null
-                  if (selection) {
-                    return { 
-                      ...meal, 
-                      selectedOption: selection, 
-                      isCompleted: completedMap[mapKey] || completedMap[fallbackKey] || false,
-                      isSkipped: skippedMap[mapKey] || skippedMap[fallbackKey] || false,
-                      skipReason: skippedReasonMap[mapKey] ?? skippedReasonMap[fallbackKey] ?? null,
-                      photo,
-                      mealLogId,
-                    }
-                  }
-                  return meal
-                })
-                
-                // Recalcular macros con todas las comidas completadas
-                const newMacros = calculateTotalMacros(updatedMeals)
-                setMacros(newMacros)
-                
-                return updatedMeals
-              })
-            }
-          }
-        } else {
-        }
-      }
-    } catch (error) {
+    if (!mealType) return
+
+    const requestData = {
+      date: todayLocalDate(),
+      meal_type: mealType,
+      plan_meal_id: meal.id && !String(meal.id).startsWith('meal-') ? meal.id : undefined,
+      recipe_id: selectedOption.recipeId || (String(selectedOption.id).includes('recipe-') ? String(selectedOption.id).split('recipe-').pop() : selectedOption.id),
+      calories: selectedOption.calories || 0,
+      protein: selectedOption.protein || 0,
+      carbs: selectedOption.carbs || 0,
+      fat: selectedOption.fat || 0,
+      skip_meal: false,
+      completed: true,
+      custom_description: selectedOption.customDescription || selectedOption.name || meal.name,
+      substitution_details: selectedOption.substitution_details || [],
     }
-  }, [calculateTotalMacros, meals, loadSelectionsFromBackend])
+
+    void enqueueSlotWrite(mealId, async () => {
+      const response = await authenticatedFetch('nutrition/daily-meal-selections/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json; charset=utf-8' },
+        body: JSON.stringify(requestData),
+      })
+      requireOk(response, 'No se pudo marcar la comida como consumida')
+    })
+  }, [calculateTotalMacros, enqueueSlotWrite, saveSelectionsToStorage])
 
   // Aplicar selecciones a las comidas (incluye completadas y no completadas)
   const applySelectionsToMeals = useCallback(async (meals: DailyMeal[], selections: Record<string, MealOption> | null, date: string) => {
@@ -817,74 +780,77 @@ export function useDailyMeals() {
   const uploadMealPhoto = useCallback(async (mealId: string, photoFile: File): Promise<boolean> => {
     if (!isAuthenticated) return false
 
-    const meal = meals.find((m) => m.id === mealId)
+    const meal = mealsRef.current.find((m) => m.id === mealId)
     if (!meal || !meal.mealType) return false
 
+    const today = todayLocalDate()
+    const formData = new FormData()
+
+    formData.append('date', today)
+    formData.append('meal_type', meal.mealType)
+    formData.append('completed', meal.isCompleted ? 'true' : 'false')
+    formData.append('skip_meal', meal.isSkipped ? 'true' : 'false')
+
+    if (!String(meal.id).startsWith('meal-')) {
+      formData.append('plan_meal_id', String(meal.id))
+    }
+
+    if (meal.selectedOption?.recipeId) {
+      formData.append('recipe_id', String(meal.selectedOption.recipeId))
+    } else if (meal.selectedOption?.id && String(meal.selectedOption.id).includes('recipe-')) {
+      formData.append('recipe_id', String(meal.selectedOption.id).split('recipe-').pop() || '')
+    }
+
+    if (meal.selectedOption) {
+      if (meal.isCompleted) {
+        formData.append('calories', String(Number(meal.selectedOption.calories) || 0))
+        formData.append('protein', String(Number(meal.selectedOption.protein) || 0))
+        formData.append('carbs', String(Number(meal.selectedOption.carbs) || 0))
+        formData.append('fat', String(Number(meal.selectedOption.fat) || 0))
+      } else {
+        formData.append('calories', '0')
+        formData.append('protein', '0')
+        formData.append('carbs', '0')
+        formData.append('fat', '0')
+      }
+    }
+
+    formData.append('custom_description', meal.selectedOption?.customDescription || meal.selectedOption?.name || meal.name)
+    formData.append('substitution_details', JSON.stringify(meal.selectedOption?.substitution_details || []))
+    formData.append('photo', photoFile)
+
+    let writeGeneration = 0
     try {
-      const today = todayLocalDate()
-      const formData = new FormData()
-
-      formData.append('date', today)
-      formData.append('meal_type', meal.mealType)
-      formData.append('completed', meal.isCompleted ? 'true' : 'false')
-      formData.append('skip_meal', meal.isSkipped ? 'true' : 'false')
-
-      if (!String(meal.id).startsWith('meal-')) {
-        formData.append('plan_meal_id', String(meal.id))
-      }
-
-      if (meal.selectedOption?.recipeId) {
-        formData.append('recipe_id', String(meal.selectedOption.recipeId))
-      } else if (meal.selectedOption?.id && String(meal.selectedOption.id).includes('recipe-')) {
-        formData.append('recipe_id', String(meal.selectedOption.id).split('recipe-').pop() || '')
-      }
-
-      if (meal.selectedOption) {
-        if (meal.isCompleted) {
-          formData.append('calories', String(Number(meal.selectedOption.calories) || 0))
-          formData.append('protein', String(Number(meal.selectedOption.protein) || 0))
-          formData.append('carbs', String(Number(meal.selectedOption.carbs) || 0))
-          formData.append('fat', String(Number(meal.selectedOption.fat) || 0))
-        } else {
-          formData.append('calories', '0')
-          formData.append('protein', '0')
-          formData.append('carbs', '0')
-          formData.append('fat', '0')
-        }
-      }
-
-      formData.append('custom_description', meal.selectedOption?.customDescription || meal.selectedOption?.name || meal.name)
-      formData.append('substitution_details', JSON.stringify(meal.selectedOption?.substitution_details || []))
-      formData.append('photo', photoFile)
-
-      const response = await fetch(buildApiUrl('nutrition/daily-meal-selections/'), {
-        credentials: 'include',
-        method: 'POST',
-        headers: getMultipartAuthHeaders(),
-        body: formData,
+      await enqueueSlotWrite(mealId, async (generation) => {
+        writeGeneration = generation
+        const response = await authenticatedFetch('nutrition/daily-meal-selections/', {
+          method: 'POST',
+          body: formData,
+          uploadTimeoutMs: 60000,
+        })
+        requireOk(response, 'No se pudo subir la foto')
+        const savedLog = await response.json()
+        if (slotGenerationRef.current.get(mealId) !== generation) return
+        const photoUrl = savedLog?.photo ? String(savedLog.photo) : null
+        if (!mountedRef.current) return
+        setMeals((prevMeals) => {
+          const next = prevMeals.map((currentMeal) => {
+            if (currentMeal.id !== mealId) return currentMeal
+            return {
+              ...currentMeal,
+              photo: photoUrl,
+              mealLogId: savedLog?.id ? String(savedLog.id) : currentMeal.mealLogId || null,
+            }
+          })
+          mealsRef.current = next
+          return next
+        })
       })
-
-      if (!response.ok) {
-        return false
-      }
-
-      const savedLog = await response.json()
-      const photoUrl = savedLog?.photo ? String(savedLog.photo) : null
-
-      setMeals((prevMeals) => prevMeals.map((currentMeal) => {
-        if (currentMeal.id !== mealId) return currentMeal
-        return {
-          ...currentMeal,
-          photo: photoUrl,
-          mealLogId: savedLog?.id ? String(savedLog.id) : currentMeal.mealLogId || null,
-        }
-      }))
-
-      return true
-    } catch (error) {
+      return slotGenerationRef.current.get(mealId) === writeGeneration && !slotErrorRef.current.get(mealId)
+    } catch {
       return false
     }
-  }, [isAuthenticated, meals])
+  }, [enqueueSlotWrite, isAuthenticated])
 
   const markMealAsNotEaten = useCallback(async (
     mealId: string,
@@ -893,69 +859,58 @@ export function useDailyMeals() {
   ): Promise<boolean> => {
     if (!isAuthenticated) return false
 
-    const meal = meals.find((m) => m.id === mealId)
+    const meal = mealsRef.current.find((m) => m.id === mealId)
     if (!meal || !meal.mealType || !meal.selectedOption) return false
 
-    try {
-      const today = todayLocalDate()
-      const headers = await getAuthHeaders()
-      const payload: Record<string, any> = {
-        date: today,
-        meal_type: meal.mealType,
-        completed: false,
-        skip_meal: true,
-        skip_reason: reason || '',
-        exclude_from_recommendations: excludeFromRecommendations,
-        custom_description: meal.selectedOption.customDescription || meal.selectedOption.name || meal.name,
-        substitution_details: meal.selectedOption.substitution_details || [],
-      }
+    const skipReason = reason || ''
+    const selectedOption = meal.selectedOption
 
-      if (!String(meal.id).startsWith('meal-')) {
-        payload.plan_meal_id = String(meal.id)
+    const updatedMeals = mealsRef.current.map((currentMeal) => {
+      if (currentMeal.id !== mealId) return currentMeal
+      return {
+        ...currentMeal,
+        isCompleted: false,
+        isSkipped: true,
+        skipReason: skipReason || null,
       }
+    })
+    mealsRef.current = updatedMeals
+    saveSelectionsToStorage(updatedMeals)
+    setMacros(calculateTotalMacros(updatedMeals))
+    setMeals(updatedMeals)
 
-      if (meal.selectedOption?.recipeId) {
-        payload.recipe_id = String(meal.selectedOption.recipeId)
-      } else if (meal.selectedOption?.id && String(meal.selectedOption.id).includes('recipe-')) {
-        payload.recipe_id = String(meal.selectedOption.id).split('recipe-').pop() || ''
-      }
+    const payload: Record<string, unknown> = {
+      date: todayLocalDate(),
+      meal_type: meal.mealType,
+      completed: false,
+      skip_meal: true,
+      skip_reason: skipReason,
+      exclude_from_recommendations: excludeFromRecommendations,
+      custom_description: selectedOption.customDescription || selectedOption.name || meal.name,
+      substitution_details: selectedOption.substitution_details || [],
+    }
 
-      const response = await fetch(buildApiUrl('nutrition/daily-meal-selections/'), {
-        credentials: 'include',
-        headers: {
-          ...headers,
-          'Content-Type': 'application/json; charset=utf-8'
-        },
+    if (!String(meal.id).startsWith('meal-')) {
+      payload.plan_meal_id = String(meal.id)
+    }
+
+    if (selectedOption.recipeId) {
+      payload.recipe_id = String(selectedOption.recipeId)
+    } else if (selectedOption.id && String(selectedOption.id).includes('recipe-')) {
+      payload.recipe_id = String(selectedOption.id).split('recipe-').pop() || ''
+    }
+
+    void enqueueSlotWrite(mealId, async () => {
+      const response = await authenticatedFetch('nutrition/daily-meal-selections/', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json; charset=utf-8' },
         body: JSON.stringify(payload),
       })
+      requireOk(response, 'No se pudo guardar que no has comido')
+    })
 
-      if (!response.ok) return false
-
-      const savedLog = await response.json()
-
-      setMeals((prevMeals) => {
-        const updatedMeals = prevMeals.map((currentMeal) => {
-          if (currentMeal.id !== mealId) return currentMeal
-          return {
-            ...currentMeal,
-            isCompleted: false,
-            isSkipped: true,
-            skipReason: savedLog?.skip_reason ? String(savedLog.skip_reason) : (reason || null),
-            mealLogId: savedLog?.id ? String(savedLog.id) : currentMeal.mealLogId || null,
-          }
-        })
-
-        const newMacros = calculateTotalMacros(updatedMeals)
-        setMacros(newMacros)
-        return updatedMeals
-      })
-
-      return true
-    } catch (error) {
-      return false
-    }
-  }, [calculateTotalMacros, isAuthenticated, meals])
+    return true
+  }, [calculateTotalMacros, enqueueSlotWrite, isAuthenticated, saveSelectionsToStorage])
 
   // Cargar opciones de comidas del plan activo
   const loadPlanMealOptions = useCallback(async (date?: string): Promise<PlanMealSlot[]> => {
@@ -1163,6 +1118,7 @@ export function useDailyMeals() {
     hasUserPlan,
     error,
     syncing,
+    syncError,
     selectMealOption,
     deselectMealOption,
     markMealCompleted,
