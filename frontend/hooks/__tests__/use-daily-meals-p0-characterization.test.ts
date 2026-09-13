@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/auth-context'
 import { nutritionService, MealOption } from '@/lib/nutrition-service'
 import { todayLocalDate } from '@/lib/local-date'
 import { clearUserLocalDataOnLogout, getMealSelectionsStorageKey } from '@/lib/user-local-storage'
+import { clearMealSessionCache } from '@/lib/meal-session-cache'
 
 jest.mock('@/contexts/auth-context', () => ({
   useAuth: jest.fn(),
@@ -184,6 +185,7 @@ describe('useDailyMeals P0 characterization', () => {
   beforeEach(() => {
     mockRefreshAccessToken.mockResolvedValue({ success: true })
     ;(global as unknown as { __mealRefresh: typeof mockRefreshAccessToken }).__mealRefresh = mockRefreshAccessToken
+    clearMealSessionCache()
     pendingWrites = []
     serverSelection = null
     getShouldFail = false
