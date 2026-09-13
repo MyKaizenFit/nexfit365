@@ -21,7 +21,7 @@ const WeeklyMealPlan = lazy(() => import('@/app/dashboard/components/weekly-meal
 const MonthlyMealPlan = lazy(() => import('@/app/dashboard/components/monthly-meal-plan').then(module => ({ default: module.MonthlyMealPlan })))
 
 export function MealDashboard() {
-  const { meals, macros, loading, hasUserPlan, syncing, selectMealOption, deselectMealOption, markMealCompleted, markMealAsNotEaten, getMealOptions, refreshData } = useDailyMeals()
+  const { meals, macros, loading, hasUserPlan, syncing, syncError, selectMealOption, deselectMealOption, markMealCompleted, markMealAsNotEaten, getMealOptions, refreshData } = useDailyMeals()
   const { userStats, refreshStats } = useUserData()
   const [selectedMeal, setSelectedMeal] = useState<{
     id: string
@@ -252,8 +252,12 @@ export function MealDashboard() {
           </div>
           <div className="flex items-center gap-2 text-[10px] md:text-xs text-muted-foreground bg-muted px-2 md:px-3 py-1.5 md:py-2 rounded-lg self-start sm:self-auto">
             <Cloud className="w-3 h-3" />
-            <span className="hidden sm:inline">Sincronizado en la nube</span>
-            <span className="sm:hidden">Sincronizado</span>
+            <span className="hidden sm:inline">
+              {syncing ? 'Guardando...' : syncError ? 'Sin sincronizar' : 'Sincronizado en la nube'}
+            </span>
+            <span className="sm:hidden">
+              {syncing ? 'Guardando' : syncError ? 'Sin sincronizar' : 'Sincronizado'}
+            </span>
           </div>
         </div>
 
@@ -393,8 +397,7 @@ export function MealDashboard() {
                         <button
                           type="button"
                           onClick={() => handleSelectPreviewOption(meal.id, displayOption)}
-                          className="flex items-center justify-center gap-1 rounded-xl bg-orange-100 px-2 py-2 text-xs font-bold text-orange-800 transition-colors hover:bg-orange-200 disabled:cursor-not-allowed disabled:opacity-50"
-                          disabled={syncing}
+                          className="flex items-center justify-center gap-1 rounded-xl bg-orange-100 px-2 py-2 text-xs font-bold text-orange-800 transition-colors hover:bg-orange-200"
                         >
                           <Plus className="h-3.5 w-3.5" />
                           <span>Seleccionar</span>
@@ -403,8 +406,7 @@ export function MealDashboard() {
                         <button
                           type="button"
                           onClick={async () => { await markMealCompleted(meal.id) }}
-                          className="flex items-center justify-center gap-1 rounded-xl bg-emerald-100 px-2 py-2 text-xs font-bold text-emerald-800 transition-colors hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-50"
-                          disabled={syncing}
+                          className="flex items-center justify-center gap-1 rounded-xl bg-emerald-100 px-2 py-2 text-xs font-bold text-emerald-800 transition-colors hover:bg-emerald-200"
                           aria-label={`Marcar ${meal.name} como consumida`}
                         >
                           <Target className="h-3.5 w-3.5" />
@@ -450,11 +452,10 @@ export function MealDashboard() {
                 ) : (
                   <button
                     onClick={() => handleOpenMealOptions(meal)}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-orange-200 bg-orange-100 px-4 py-3 text-sm font-black text-orange-800 shadow-sm transition-all hover:bg-orange-200 disabled:cursor-not-allowed disabled:opacity-50"
-                    disabled={syncing}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-orange-200 bg-orange-100 px-4 py-3 text-sm font-black text-orange-800 shadow-sm transition-all hover:bg-orange-200"
                   >
                     <Plus className="h-4 w-4" />
-                    <span>{syncing ? 'Sincronizando...' : 'Ver opciones'}</span>
+                    <span>Ver opciones</span>
                   </button>
                 )}
               </div>

@@ -1,9 +1,8 @@
 /**
- * P0 characterization for useDailyMeals.
- *
- * Isolation / GET-empty / logout: product contract (must PASS after PR2).
- * Race / 401: [characterization] + [expected-until-fix] until later PRs.
+ * P0 meal tests: isolation (PR2) + last user action wins (PR3).
  */
+import fs from 'fs'
+import path from 'path'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { useDailyMeals } from '../use-daily-meals'
 import { useAuth } from '@/contexts/auth-context'
@@ -35,8 +34,24 @@ jest.mock('@/lib/api', () => {
     ...actual,
     getAuthHeaders: jest.fn(async () => ({})),
     getMultipartAuthHeaders: jest.fn(async () => ({})),
+    authenticatedFetch: async (url: string, options: RequestInit = {}) => {
+      const resolved = String(url).startsWith('http') ? url : actual.buildApiUrl(url)
+      const first = await fetch(resolved, { ...options, credentials: 'include' })
+      if (first.status !== 401) return first
+      const refresh = await (global as unknown as { __mealRefresh: () => Promise<{ success: boolean; error?: string }> }).__mealRefresh()
+      if (!refresh?.success) {
+        throw new Error(refresh?.error || 'Token expirado. Por favor, cierra sesión e inicia de nuevo.')
+      }
+      const retry = await fetch(resolved, { ...options, credentials: 'include' })
+      if (retry.status === 401) {
+        throw new Error('Token expirado. Por favor, cierra sesión e inicia de nuevo.')
+      }
+      return retry
+    },
   }
 })
+
+const mockRefreshAccessToken = jest.fn(async (): Promise<{ success: boolean; error?: string }> => ({ success: true }))
 
 const SLOT_ID = 'slot-breakfast'
 
@@ -167,6 +182,8 @@ describe('useDailyMeals P0 characterization', () => {
   let getShouldFail: boolean
 
   beforeEach(() => {
+    mockRefreshAccessToken.mockResolvedValue({ success: true })
+    ;(global as unknown as { __mealRefresh: typeof mockRefreshAccessToken }).__mealRefresh = mockRefreshAccessToken
     pendingWrites = []
     serverSelection = null
     getShouldFail = false
@@ -189,7 +206,12 @@ describe('useDailyMeals P0 characterization', () => {
         }
 
         if (method === 'POST') {
-          const body = JSON.parse(String(init?.body || '{}'))
+          let body: Record<string, unknown>
+          if (typeof FormData !== 'undefined' && init?.body instanceof FormData) {
+            body = { photo: true }
+          } else {
+            body = JSON.parse(String(init?.body || '{}'))
+          }
           return new Promise((resolve) => {
             pendingWrites.push({
               method,
@@ -245,9 +267,9 @@ describe('useDailyMeals P0 characterization', () => {
     return hook
   }
 
-  async function flushSelectTimeouts() {
-    await act(async () => {
-      jest.advanceTimersByTime(150)
+  async function waitForWrites(count: number) {
+    await waitFor(() => {
+      expect(pendingWrites).toHaveLength(count)
     })
   }
 
@@ -255,48 +277,265 @@ describe('useDailyMeals P0 characterization', () => {
     return serverSelection?.custom_description || serverSelection?.recipe_id || null
   }
 
-  describe('last user action vs last completion', () => {
-    it('[characterization] A then B: if A completes last, server keeps A while UI shows B', async () => {
+  describe('last user action wins', () => {
+    it('A then B: last user action B is persisted even if A is still in flight', async () => {
       const hook = await mountHook()
-      jest.useFakeTimers()
 
       await act(async () => {
         await hook.result.current.selectMealOption(SLOT_ID, optionA)
       })
+      await waitForWrites(1)
       await act(async () => {
         await hook.result.current.selectMealOption(SLOT_ID, optionB)
       })
-      await flushSelectTimeouts()
 
-      expect(pendingWrites).toHaveLength(2)
+      expect(pendingWrites).toHaveLength(1)
       expect(hook.result.current.meals[0].selectedOption?.name).toBe('Plato B')
+      expect(hook.result.current.syncing).toBe(true)
 
-      await act(async () => {
-        pendingWrites[1].complete()
-      })
       await act(async () => {
         pendingWrites[0].complete()
       })
+      await waitForWrites(2)
+      await act(async () => {
+        pendingWrites[1].complete()
+      })
+      await waitFor(() => {
+        expect(hook.result.current.syncing).toBe(false)
+      })
 
-      expect(lastPersistedName()).toBe('Plato A')
+      expect(lastPersistedName()).toBe('Plato B')
       expect(hook.result.current.meals[0].selectedOption?.name).toBe('Plato B')
+      expect(JSON.parse(localStorage.getItem(mealStorageKey()) || '{}')[SLOT_ID].option.name).toBe('Plato B')
     })
 
-    it.failing('[expected-until-fix] A then B out of order: last user action B must persist', async () => {
+    it('A→B→C: last user action C is persisted', async () => {
       const hook = await mountHook()
-      jest.useFakeTimers()
 
       await act(async () => {
         await hook.result.current.selectMealOption(SLOT_ID, optionA)
       })
+      await waitForWrites(1)
       await act(async () => {
         await hook.result.current.selectMealOption(SLOT_ID, optionB)
       })
-      await flushSelectTimeouts()
+      await act(async () => {
+        await hook.result.current.selectMealOption(SLOT_ID, optionC)
+      })
+
+      expect(hook.result.current.meals[0].selectedOption?.name).toBe('Plato C')
+      expect(pendingWrites).toHaveLength(1)
+
+      await act(async () => {
+        pendingWrites[0].complete()
+      })
+      await waitForWrites(2)
+      await act(async () => {
+        pendingWrites[1].complete()
+      })
+      await waitForWrites(3)
+      await act(async () => {
+        pendingWrites[2].complete()
+      })
+      await waitFor(() => {
+        expect(hook.result.current.syncing).toBe(false)
+      })
+
+      expect(lastPersistedName()).toBe('Plato C')
+      expect(hook.result.current.meals[0].selectedOption?.name).toBe('Plato C')
+    })
+
+    it('select then deselect: later DELETE wins and A does not resurrect', async () => {
+      const hook = await mountHook()
+
+      await act(async () => {
+        await hook.result.current.selectMealOption(SLOT_ID, optionA)
+      })
+      await waitForWrites(1)
+      await act(async () => {
+        await hook.result.current.deselectMealOption(SLOT_ID)
+      })
+
+      expect(hook.result.current.meals[0].selectedOption).toBeNull()
+      expect(pendingWrites).toHaveLength(1)
+      expect(pendingWrites[0].method).toBe('POST')
+
+      await act(async () => {
+        pendingWrites[0].complete()
+      })
+      await waitForWrites(2)
+      expect(pendingWrites[1].method).toBe('DELETE')
+      await act(async () => {
+        pendingWrites[1].complete()
+      })
+      await waitFor(() => {
+        expect(hook.result.current.syncing).toBe(false)
+      })
+
+      expect(serverSelection).toBeNull()
+      expect(hook.result.current.meals[0].selectedOption).toBeNull()
+    })
+
+    it('completed then change to B: server keeps B completed', async () => {
+      const hook = await mountHook()
+
+      await act(async () => {
+        await hook.result.current.selectMealOption(SLOT_ID, optionA)
+      })
+      await waitForWrites(1)
+      await act(async () => {
+        pendingWrites[0].complete()
+      })
+      await waitFor(() => {
+        expect(hook.result.current.syncing).toBe(false)
+      })
+
+      await act(async () => {
+        await hook.result.current.markMealCompleted(SLOT_ID)
+      })
+      await waitForWrites(2)
+      await act(async () => {
+        await hook.result.current.selectMealOption(SLOT_ID, optionB)
+      })
+
+      expect(hook.result.current.meals[0].selectedOption?.name).toBe('Plato B')
+      expect(hook.result.current.meals[0].isCompleted).toBe(true)
+      expect(hook.result.current.macros.caloriesConsumed).toBe(500)
 
       await act(async () => {
         pendingWrites[1].complete()
       })
+      await waitForWrites(3)
+      await act(async () => {
+        pendingWrites[2].complete()
+      })
+      await waitFor(() => {
+        expect(hook.result.current.syncing).toBe(false)
+      })
+
+      expect(serverSelection?.recipe_id).toBe('rec-b')
+      expect(serverSelection?.completed).toBe(true)
+      expect(JSON.parse(localStorage.getItem(mealStorageKey()) || '{}')[SLOT_ID].option.name).toBe('Plato B')
+    })
+
+    it('double tap A stays A', async () => {
+      const hook = await mountHook()
+
+      await act(async () => {
+        await hook.result.current.selectMealOption(SLOT_ID, optionA)
+      })
+      await waitForWrites(1)
+      await act(async () => {
+        await hook.result.current.selectMealOption(SLOT_ID, optionA)
+      })
+
+      await act(async () => {
+        pendingWrites[0].complete()
+      })
+      await waitForWrites(2)
+      await act(async () => {
+        pendingWrites[1].complete()
+      })
+      await waitFor(() => {
+        expect(hook.result.current.syncing).toBe(false)
+      })
+
+      expect(lastPersistedName()).toBe('Plato A')
+      expect(hook.result.current.meals[0].selectedOption?.name).toBe('Plato A')
+    })
+
+    it('network failure keeps optimistic UI and reports sync error', async () => {
+      const hook = await mountHook()
+
+      await act(async () => {
+        await hook.result.current.selectMealOption(SLOT_ID, optionA)
+      })
+      await waitForWrites(1)
+      await act(async () => {
+        pendingWrites[0].complete({
+          ok: false,
+          status: 500,
+          json: async () => ({ detail: 'server error' }),
+        } as Response)
+      })
+      await waitFor(() => {
+        expect(hook.result.current.syncing).toBe(false)
+      })
+
+      expect(hook.result.current.meals[0].selectedOption?.name).toBe('Plato A')
+      expect(hook.result.current.syncError).toBeTruthy()
+      expect(JSON.parse(localStorage.getItem(mealStorageKey()) || '{}')[SLOT_ID].option.name).toBe('Plato A')
+    })
+
+    it('queue continues after a failed write', async () => {
+      const hook = await mountHook()
+
+      await act(async () => {
+        await hook.result.current.selectMealOption(SLOT_ID, optionA)
+      })
+      await waitForWrites(1)
+      await act(async () => {
+        pendingWrites[0].complete({
+          ok: false,
+          status: 500,
+          json: async () => ({ detail: 'server error' }),
+        } as Response)
+      })
+      await waitFor(() => {
+        expect(hook.result.current.syncError).toBeTruthy()
+      })
+
+      await act(async () => {
+        await hook.result.current.selectMealOption(SLOT_ID, optionB)
+      })
+      await waitForWrites(2)
+      await act(async () => {
+        pendingWrites[1].complete()
+      })
+      await waitFor(() => {
+        expect(hook.result.current.syncing).toBe(false)
+      })
+
+      expect(lastPersistedName()).toBe('Plato B')
+      expect(hook.result.current.syncError).toBeNull()
+      expect(hook.result.current.meals[0].selectedOption?.name).toBe('Plato B')
+    })
+
+    it('pending sync stays true until later queued write finishes', async () => {
+      const hook = await mountHook()
+
+      await act(async () => {
+        await hook.result.current.selectMealOption(SLOT_ID, optionA)
+      })
+      await waitForWrites(1)
+      await act(async () => {
+        await hook.result.current.selectMealOption(SLOT_ID, optionB)
+      })
+      expect(hook.result.current.syncing).toBe(true)
+
+      await act(async () => {
+        pendingWrites[0].complete()
+      })
+      await waitForWrites(2)
+      expect(hook.result.current.syncing).toBe(true)
+
+      await act(async () => {
+        pendingWrites[1].complete()
+      })
+      await waitFor(() => {
+        expect(hook.result.current.syncing).toBe(false)
+      })
+    })
+
+    it('unmount does not abort an already queued write', async () => {
+      const hook = await mountHook()
+
+      await act(async () => {
+        await hook.result.current.selectMealOption(SLOT_ID, optionB)
+      })
+      await waitForWrites(1)
+      hook.unmount()
+
       await act(async () => {
         pendingWrites[0].complete()
       })
@@ -304,206 +543,153 @@ describe('useDailyMeals P0 characterization', () => {
       expect(lastPersistedName()).toBe('Plato B')
     })
 
-    it('[characterization] A→B→C completing C,B,A leaves server on A', async () => {
-      const hook = await mountHook()
-      jest.useFakeTimers()
+    it('different slots persist in parallel', async () => {
+      const dinnerId = 'slot-dinner'
+      jest.spyOn(nutritionService, 'getPlanMealsForSelection').mockResolvedValue({
+        ...planPayload,
+        meal_slots: [
+          ...planPayload.meal_slots,
+          { id: dinnerId, name: 'Cena', meal_type: 'dinner', time: '21:00', order_index: 2 },
+        ],
+        meals_by_type: { ...planPayload.meals_by_type, dinner: [optionA, optionB] },
+        options_by_meal_id: { ...planPayload.options_by_meal_id, [dinnerId]: [optionA, optionB] },
+      } as any)
+
+      const hook = renderHook(() => useDailyMeals())
+      await waitFor(() => {
+        expect(hook.result.current.loading).toBe(false)
+      })
+      expect(hook.result.current.meals).toHaveLength(2)
 
       await act(async () => {
         await hook.result.current.selectMealOption(SLOT_ID, optionA)
       })
+      await waitForWrites(1)
+      await act(async () => {
+        await hook.result.current.selectMealOption(dinnerId, optionB)
+      })
+      await waitForWrites(2)
+
+      expect(pendingWrites.map((item) => item.body?.plan_meal_id)).toEqual(
+        expect.arrayContaining([SLOT_ID, dinnerId]),
+      )
+
+      await act(async () => {
+        pendingWrites[0].complete()
+        pendingWrites[1].complete()
+      })
+      await waitFor(() => {
+        expect(hook.result.current.syncing).toBe(false)
+      })
+    })
+
+    it('breakfast failure keeps sync error after dinner succeeds', async () => {
+      const dinnerId = 'slot-dinner'
+      jest.spyOn(nutritionService, 'getPlanMealsForSelection').mockResolvedValue({
+        ...planPayload,
+        meal_slots: [
+          ...planPayload.meal_slots,
+          { id: dinnerId, name: 'Cena', meal_type: 'dinner', time: '21:00', order_index: 2 },
+        ],
+        meals_by_type: { ...planPayload.meals_by_type, dinner: [optionA, optionB] },
+        options_by_meal_id: { ...planPayload.options_by_meal_id, [dinnerId]: [optionA, optionB] },
+      } as any)
+
+      const hook = renderHook(() => useDailyMeals())
+      await waitFor(() => {
+        expect(hook.result.current.loading).toBe(false)
+      })
+
+      await act(async () => {
+        await hook.result.current.selectMealOption(SLOT_ID, optionA)
+      })
+      await waitForWrites(1)
+      await act(async () => {
+        await hook.result.current.selectMealOption(dinnerId, optionB)
+      })
+      await waitForWrites(2)
+
+      const breakfastWrite = pendingWrites.find((item) => item.body?.plan_meal_id === SLOT_ID)
+      const dinnerWrite = pendingWrites.find((item) => item.body?.plan_meal_id === dinnerId)
+      expect(breakfastWrite).toBeTruthy()
+      expect(dinnerWrite).toBeTruthy()
+
+      await act(async () => {
+        breakfastWrite!.complete({
+          ok: false,
+          status: 500,
+          json: async () => ({ detail: 'server error' }),
+        } as Response)
+        dinnerWrite!.complete()
+      })
+      await waitFor(() => {
+        expect(hook.result.current.syncing).toBe(false)
+      })
+
+      expect(hook.result.current.syncError).toBeTruthy()
+
       await act(async () => {
         await hook.result.current.selectMealOption(SLOT_ID, optionB)
       })
-      await act(async () => {
-        await hook.result.current.selectMealOption(SLOT_ID, optionC)
-      })
-      await flushSelectTimeouts()
-
-      expect(pendingWrites).toHaveLength(3)
+      await waitForWrites(3)
       await act(async () => {
         pendingWrites[2].complete()
       })
+      await waitFor(() => {
+        expect(hook.result.current.syncing).toBe(false)
+      })
+
+      expect(hook.result.current.syncError).toBeNull()
+      expect(hook.result.current.meals.find((meal) => meal.id === SLOT_ID)?.selectedOption?.name).toBe('Plato B')
+    })
+
+    it('photo upload uses FormData without a manual multipart Content-Type', async () => {
+      const hook = await mountHook()
+
       await act(async () => {
+        await hook.result.current.selectMealOption(SLOT_ID, optionA)
+      })
+      await waitForWrites(1)
+      await act(async () => {
+        pendingWrites[0].complete()
+      })
+      await waitFor(() => {
+        expect(hook.result.current.syncing).toBe(false)
+      })
+
+      const photo = new File(['meal-photo'], 'meal.jpg', { type: 'image/jpeg' })
+      let uploadResult = false
+      await act(async () => {
+        const pending = hook.result.current.uploadMealPhoto(SLOT_ID, photo)
+        await waitForWrites(2)
+        expect(pendingWrites[1].body).toEqual({ photo: true })
+        const photoCall = (global.fetch as jest.Mock).mock.calls.find(
+          (call) => call[1]?.body instanceof FormData,
+        )
+        expect(photoCall).toBeTruthy()
+        expect(JSON.stringify(photoCall?.[1]?.headers || {})).not.toMatch(/multipart/i)
+        expect(JSON.stringify(photoCall?.[1]?.headers || {})).not.toMatch(/Content-Type/i)
         pendingWrites[1].complete()
-      })
-      await act(async () => {
-        pendingWrites[0].complete()
+        uploadResult = await pending
       })
 
-      expect(lastPersistedName()).toBe('Plato A')
-      expect(hook.result.current.meals[0].selectedOption?.name).toBe('Plato C')
+      expect(uploadResult).toBe(true)
+      await waitFor(() => {
+        expect(hook.result.current.syncing).toBe(false)
+      })
     })
+  })
 
-    it.failing('[expected-until-fix] A→B→C out of order: last user action C must persist', async () => {
-      const hook = await mountHook()
-      jest.useFakeTimers()
-
-      await act(async () => {
-        await hook.result.current.selectMealOption(SLOT_ID, optionA)
-      })
-      await act(async () => {
-        await hook.result.current.selectMealOption(SLOT_ID, optionB)
-      })
-      await act(async () => {
-        await hook.result.current.selectMealOption(SLOT_ID, optionC)
-      })
-      await flushSelectTimeouts()
-
-      await act(async () => {
-        pendingWrites[2].complete()
-      })
-      await act(async () => {
-        pendingWrites[1].complete()
-      })
-      await act(async () => {
-        pendingWrites[0].complete()
-      })
-
-      expect(lastPersistedName()).toBe('Plato C')
-    })
-
-    it('[characterization] select then deselect: POST after DELETE resurrects A on the server', async () => {
-      const hook = await mountHook()
-      jest.useFakeTimers()
-
-      await act(async () => {
-        await hook.result.current.selectMealOption(SLOT_ID, optionA)
-      })
-      let deselectPromise: Promise<void>
-      await act(async () => {
-        deselectPromise = hook.result.current.deselectMealOption(SLOT_ID)
-      })
-      await flushSelectTimeouts()
-
-      const del = pendingWrites.find((item) => item.method === 'DELETE')
-      const post = pendingWrites.find((item) => item.method === 'POST')
-      expect(del).toBeTruthy()
-      expect(post).toBeTruthy()
-
-      await act(async () => {
-        del!.complete()
-      })
-      expect(serverSelection).toBeNull()
-
-      await act(async () => {
-        post!.complete()
-      })
-      await act(async () => {
-        await deselectPromise
-      })
-
-      expect(lastPersistedName()).toBe('Plato A')
-      expect(hook.result.current.meals[0].selectedOption).toBeNull()
-    })
-
-    it.failing('[expected-until-fix] select then deselect: late POST must not resurrect the selection', async () => {
-      const hook = await mountHook()
-      jest.useFakeTimers()
-
-      await act(async () => {
-        await hook.result.current.selectMealOption(SLOT_ID, optionA)
-      })
-      let deselectPromise: Promise<void>
-      await act(async () => {
-        deselectPromise = hook.result.current.deselectMealOption(SLOT_ID)
-      })
-      await flushSelectTimeouts()
-
-      const del = pendingWrites.find((item) => item.method === 'DELETE')
-      const post = pendingWrites.find((item) => item.method === 'POST')
-      await act(async () => {
-        del!.complete()
-      })
-      await act(async () => {
-        post!.complete()
-      })
-      await act(async () => {
-        await deselectPromise
-      })
-
-      expect(serverSelection).toBeNull()
-    })
-
-    it('[characterization] completed then change option: late complete-A POST can replace B on the server', async () => {
-      const hook = await mountHook()
-      jest.useFakeTimers()
-
-      await act(async () => {
-        await hook.result.current.selectMealOption(SLOT_ID, optionA)
-      })
-      await flushSelectTimeouts()
-      await act(async () => {
-        pendingWrites[0].complete()
-      })
-
-      const completeIndex = pendingWrites.length
-      let markPromise: Promise<void>
-      await act(async () => {
-        markPromise = hook.result.current.markMealCompleted(SLOT_ID)
-      })
-      expect(pendingWrites.length).toBeGreaterThan(completeIndex)
-      const completeWrite = pendingWrites[completeIndex]
-
-      await act(async () => {
-        await hook.result.current.selectMealOption(SLOT_ID, optionB)
-      })
-      await flushSelectTimeouts()
-      const changeWrite = pendingWrites[pendingWrites.length - 1]
-
-      await act(async () => {
-        changeWrite.complete()
-      })
-      await act(async () => {
-        completeWrite.complete()
-      })
-      await act(async () => {
-        await markPromise
-      })
-
-      expect(serverSelection?.recipe_id).toBe('rec-a')
-      expect(serverSelection?.completed).toBe(true)
-      expect(hook.result.current.meals[0].selectedOption?.name).toBe('Plato B')
-      expect(hook.result.current.meals[0].isCompleted).toBe(true)
-      expect(hook.result.current.macros.caloriesConsumed).toBe(500)
-    })
-
-    it.failing('[expected-until-fix] completed then change to B: server must keep B completed', async () => {
-      const hook = await mountHook()
-      jest.useFakeTimers()
-
-      await act(async () => {
-        await hook.result.current.selectMealOption(SLOT_ID, optionA)
-      })
-      await flushSelectTimeouts()
-      await act(async () => {
-        pendingWrites[0].complete()
-      })
-
-      const completeIndex = pendingWrites.length
-      let markPromise: Promise<void>
-      await act(async () => {
-        markPromise = hook.result.current.markMealCompleted(SLOT_ID)
-      })
-      const completeWrite = pendingWrites[completeIndex]
-
-      await act(async () => {
-        await hook.result.current.selectMealOption(SLOT_ID, optionB)
-      })
-      await flushSelectTimeouts()
-      const changeWrite = pendingWrites[pendingWrites.length - 1]
-
-      await act(async () => {
-        changeWrite.complete()
-      })
-      await act(async () => {
-        completeWrite.complete()
-      })
-      await act(async () => {
-        await markPromise
-      })
-
-      expect(serverSelection?.recipe_id).toBe('rec-b')
-      expect(serverSelection?.completed).toBe(true)
+  describe('slot write queue source contract', () => {
+    it('deletes a finished slot promise only when it is still the current chain head', () => {
+      const src = fs.readFileSync(
+        path.join(process.cwd(), 'hooks/use-daily-meals.ts'),
+        'utf8',
+      )
+      expect(src).toContain('previous.catch(() => undefined)')
+      expect(src).toContain('slotWriteChainRef.current.get(slotId) === next')
+      expect(src).toContain('slotWriteChainRef.current.delete(slotId)')
+      expect(src).toContain('void next.catch(() => undefined)')
     })
   })
 
@@ -511,12 +697,11 @@ describe('useDailyMeals P0 characterization', () => {
     it('USER A select → logout → USER B GET 200 [] sees zero selections', async () => {
       mockUseAuth.mockReturnValue(authUser(USER_A))
       const hookA = await mountHook()
-      jest.useFakeTimers()
 
       await act(async () => {
         await hookA.result.current.selectMealOption(SLOT_ID, optionA)
       })
-      await flushSelectTimeouts()
+      await waitForWrites(1)
 
       expect(JSON.parse(localStorage.getItem(mealStorageKey(USER_A)) || '{}')[SLOT_ID].option.name).toBe('Plato A')
 
@@ -626,16 +811,13 @@ describe('useDailyMeals P0 characterization', () => {
   })
 
   describe('401 during select sync', () => {
-    it('[characterization] 401 leaves optimistic UI + localStorage and reports idle sync (no error)', async () => {
+    it('401 with successful refresh retries and keeps the selection', async () => {
       const hook = await mountHook()
-      jest.useFakeTimers()
 
       await act(async () => {
         await hook.result.current.selectMealOption(SLOT_ID, optionA)
       })
-      await flushSelectTimeouts()
-
-      expect(pendingWrites).toHaveLength(1)
+      await waitForWrites(1)
       await act(async () => {
         pendingWrites[0].complete({
           ok: false,
@@ -643,14 +825,43 @@ describe('useDailyMeals P0 characterization', () => {
           json: async () => ({ detail: 'Unauthorized' }),
         } as Response)
       })
+      await waitForWrites(2)
+      await act(async () => {
+        pendingWrites[1].complete()
+      })
+      await waitFor(() => {
+        expect(hook.result.current.syncing).toBe(false)
+      })
+
+      expect(lastPersistedName()).toBe('Plato A')
+      expect(hook.result.current.meals[0].selectedOption?.name).toBe('Plato A')
+      expect(hook.result.current.syncError).toBeNull()
+      expect(JSON.parse(localStorage.getItem(mealStorageKey()) || '{}')[SLOT_ID].option.name).toBe('Plato A')
+    })
+
+    it('401 with failed refresh keeps local selection and reports sync error', async () => {
+      mockRefreshAccessToken.mockResolvedValue({ success: false, error: 'expired' })
+      const hook = await mountHook()
+
+      await act(async () => {
+        await hook.result.current.selectMealOption(SLOT_ID, optionA)
+      })
+      await waitForWrites(1)
+      await act(async () => {
+        pendingWrites[0].complete({
+          ok: false,
+          status: 401,
+          json: async () => ({ detail: 'Unauthorized' }),
+        } as Response)
+      })
+      await waitFor(() => {
+        expect(hook.result.current.syncing).toBe(false)
+      })
 
       expect(serverSelection).toBeNull()
       expect(hook.result.current.meals[0].selectedOption?.name).toBe('Plato A')
-      expect(hook.result.current.syncing).toBe(false)
-      expect(hook.result.current.error).toBeNull()
-
-      const stored = JSON.parse(localStorage.getItem(mealStorageKey()) || '{}')
-      expect(stored[SLOT_ID].option.name).toBe('Plato A')
+      expect(hook.result.current.syncError).toBeTruthy()
+      expect(JSON.parse(localStorage.getItem(mealStorageKey()) || '{}')[SLOT_ID].option.name).toBe('Plato A')
     })
   })
 })
