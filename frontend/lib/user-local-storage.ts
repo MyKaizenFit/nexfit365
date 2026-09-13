@@ -24,7 +24,9 @@ const USER_SPECIFIC_EXACT_KEYS = [
 
 const USER_SPECIFIC_PREFIXES = [
   'active_workout_',
+  'active_workout:',
   'workout_substitutes_',
+  'workout_substitutes:',
   'workout_completed_',
   'last_workout_',
   'last_meal_log_',
@@ -34,6 +36,8 @@ const USER_SPECIFIC_PREFIXES = [
   'nexfit_energy_score_',
   'coaching-cta-hidden-until:',
 ] as const
+
+const USER_WORKOUT_KEY = /^(active_workout|workout_substitutes):(.+):(.+):(\d{4}-\d{2}-\d{2})$/
 
 const SESSION_ONLY_EXACT_KEYS = ['dashboard_error_auto_recovered'] as const
 const SESSION_ONLY_PREFIXES = ['birthday-toast-'] as const
@@ -51,6 +55,37 @@ export function getMealSelectionsStorageKey(userId: string | number, date: strin
     throw new Error('getMealSelectionsStorageKey requires date')
   }
   return `meal-selections-${id}-${day}`
+}
+
+export function getActiveWorkoutStorageKey(
+  userId: string | number,
+  dayId: string,
+  date: string,
+): string {
+  return workoutScopedKey('active_workout', userId, dayId, date)
+}
+
+export function getWorkoutSubstitutesStorageKey(
+  userId: string | number,
+  dayId: string,
+  date: string,
+): string {
+  return workoutScopedKey('workout_substitutes', userId, dayId, date)
+}
+
+function workoutScopedKey(
+  prefix: 'active_workout' | 'workout_substitutes',
+  userId: string | number,
+  dayId: string,
+  date: string,
+): string {
+  const id = String(userId).trim()
+  const day = String(dayId).trim()
+  const when = String(date).trim()
+  if (id === '') throw new Error(`${prefix} key requires userId`)
+  if (day === '') throw new Error(`${prefix} key requires dayId`)
+  if (when === '') throw new Error(`${prefix} key requires date`)
+  return `${prefix}:${id}:${day}:${when}`
 }
 
 export function removeLegacyMealSelectionsKey(date: string): void {
@@ -84,11 +119,29 @@ function shouldRemoveMealSelectionsKey(key: string, currentUserId: string | null
   return ownerId === currentUserId
 }
 
+function workoutKeyOwnerId(key: string): string | null {
+  const match = key.match(USER_WORKOUT_KEY)
+  return match ? match[2] : null
+}
+
+function shouldRemoveWorkoutKey(key: string, currentUserId: string | null): boolean {
+  if (key.startsWith('active_workout_') || key.startsWith('workout_substitutes_')) return true
+  const ownerId = workoutKeyOwnerId(key)
+  if (ownerId == null) return false
+  if (currentUserId == null) return true
+  return ownerId === currentUserId
+}
+
 function shouldRemoveLocalStorageKey(key: string, currentUserId: string | null): boolean {
   if (GLOBAL_SAFE_KEYS.has(key)) return false
   if (shouldRemoveMealSelectionsKey(key, currentUserId)) return true
+  if (shouldRemoveWorkoutKey(key, currentUserId)) return true
   if ((USER_SPECIFIC_EXACT_KEYS as readonly string[]).includes(key)) return true
-  return USER_SPECIFIC_PREFIXES.some((prefix) => key.startsWith(prefix))
+  return USER_SPECIFIC_PREFIXES.some((prefix) => {
+    if (prefix === 'active_workout_' || prefix === 'active_workout:') return false
+    if (prefix === 'workout_substitutes_' || prefix === 'workout_substitutes:') return false
+    return key.startsWith(prefix)
+  })
 }
 
 function shouldRemoveSessionStorageKey(key: string): boolean {

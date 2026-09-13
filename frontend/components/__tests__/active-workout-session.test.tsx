@@ -10,6 +10,10 @@ jest.mock('@/hooks/use-toast', () => ({
   toast: jest.fn(),
 }))
 
+jest.mock('@/contexts/auth-context', () => ({
+  useAuth: () => ({ isAuthenticated: true, user: { id: 1 } }),
+}))
+
 const workoutDay = {
   id: 'day-1',
   day_name: 'Día de fuerza',

@@ -402,7 +402,8 @@ export function useWorkouts() {
     notes?: string,
     duration_minutes?: number,
     rating?: number,
-    exercises_data?: any[]
+    exercises_data?: any[],
+    basedOnUpdatedAt?: string | null,
   ) => {
     if (!isAuthenticated) {
       throw new Error('Usuario no autenticado')
@@ -421,7 +422,8 @@ export function useWorkouts() {
           date: todayLocalDate(),
           duration_minutes: duration_minutes || null,
           rating: rating || null,
-          exercises_data: exercises_data || []
+          exercises_data: exercises_data || [],
+          ...(basedOnUpdatedAt ? { based_on_updated_at: basedOnUpdatedAt } : {}),
         })
       })
 
@@ -644,6 +646,7 @@ export function useWorkouts() {
       rating?: number | null
       exercises_data?: any[]
       completed?: boolean
+      based_on_updated_at?: string | null
     }
   ) => {
     if (!isAuthenticated) {
@@ -661,6 +664,7 @@ export function useWorkouts() {
         // Omit completed on draft autosave so a delayed write cannot send false
         // and race a just-finished session.
         ...(payload.completed !== undefined ? { completed: payload.completed } : {}),
+        ...(payload.based_on_updated_at ? { based_on_updated_at: payload.based_on_updated_at } : {}),
         date: todayLocalDate(),
         duration_minutes: payload.duration_minutes ?? null,
         rating: payload.rating || null,

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import { Timer, Play, Pause, RotateCcw, X, Volume2, VolumeX } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { remainingSecondsFromEndsAt } from "@/lib/rest-timer"
 
 const PRESET_DURATIONS = [30, 60, 90, 120, 180, 240] as const
 
@@ -25,6 +26,10 @@ export function RestTimer({ defaultDuration = 90, inline = false, onComplete, cl
   const [muted, setMuted] = useState(false)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const audioCtxRef = useRef<AudioContext | null>(null)
+  const endsAtRef = useRef<number | null>(null)
+  const completedRef = useRef(false)
+  const remainingRef = useRef(remaining)
+  remainingRef.current = remaining
 
   // Sintetizar pitido sin archivos externos
   const playBeep = useCallback((freq: number, duration_ms: number) => {
@@ -52,22 +57,36 @@ export function RestTimer({ defaultDuration = 90, inline = false, onComplete, cl
       clearInterval(intervalRef.current)
       intervalRef.current = null
     }
+    if (endsAtRef.current) {
+      const left = remainingSecondsFromEndsAt(endsAtRef.current)
+      remainingRef.current = left
+      setRemaining(left)
+      endsAtRef.current = null
+    }
     setRunning(false)
   }, [])
 
   const reset = useCallback((newDuration?: number) => {
     stop()
     const d = newDuration ?? duration
+    endsAtRef.current = null
+    completedRef.current = false
     setDuration(d)
     setRemaining(d)
     setFinished(false)
   }, [stop, duration])
 
   const start = useCallback(() => {
-    if (finished) reset()
+    if (finished) {
+      reset()
+      endsAtRef.current = Date.now() + (duration) * 1000
+    } else {
+      endsAtRef.current = Date.now() + Math.max(0, remainingRef.current) * 1000
+    }
+    completedRef.current = false
     setRunning(true)
     setFinished(false)
-  }, [finished, reset])
+  }, [finished, reset, duration])
 
   const pause = useCallback(() => {
     stop()
@@ -76,23 +95,33 @@ export function RestTimer({ defaultDuration = 90, inline = false, onComplete, cl
   // Tick del temporizador
   useEffect(() => {
     if (!running) return
-    intervalRef.current = setInterval(() => {
-      setRemaining(prev => {
-        if (prev <= 1) {
-          stop()
-          setFinished(true)
-          playBeep(880, 600)
-          setTimeout(() => playBeep(880, 600), 700)
-          setTimeout(() => playBeep(1100, 800), 1400)
-          onComplete?.()
-          return 0
-        }
-        // Pitido de alerta los últimos 3 segundos
-        if (prev <= 4) playBeep(660, 200)
-        return prev - 1
-      })
-    }, 1000)
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
+    const tick = () => {
+      if (!endsAtRef.current) return
+      const next = remainingSecondsFromEndsAt(endsAtRef.current)
+      setRemaining(next)
+      if (next <= 0) {
+        if (completedRef.current) return
+        completedRef.current = true
+        endsAtRef.current = null
+        stop()
+        setFinished(true)
+        playBeep(880, 600)
+        setTimeout(() => playBeep(880, 600), 700)
+        setTimeout(() => playBeep(1100, 800), 1400)
+        onComplete?.()
+        return
+      }
+      if (next <= 3) playBeep(660, 200)
+    }
+    intervalRef.current = setInterval(tick, 1000)
+    const onForeground = () => tick()
+    document.addEventListener('visibilitychange', onForeground)
+    window.addEventListener('focus', onForeground)
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current)
+      document.removeEventListener('visibilitychange', onForeground)
+      window.removeEventListener('focus', onForeground)
+    }
   }, [running, stop, playBeep, onComplete])
 
   // Limpiar al desmontar
