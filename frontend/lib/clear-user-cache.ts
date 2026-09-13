@@ -23,6 +23,7 @@ export function clearUserCache() {
   // Limpiar caché de estadísticas del usuario
   const statsCacheKey = generateCacheKey('/user-stats/')
   apiCache.delete(statsCacheKey)
+  apiCache.delete(generateCacheKey('/user-stats/session'))
   
   clearUserLocalDataOnLogout()
   
