@@ -4,7 +4,7 @@
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ActiveWorkoutSession } from '../active-workout-session'
-import { todayLocalDate } from '@/lib/local-date'
+import { formatLocalDate, todayLocalDate } from '@/lib/local-date'
 import { getActiveWorkoutStorageKey } from '@/lib/user-local-storage'
 
 jest.mock('../exercise-video-player', () => ({
@@ -34,6 +34,11 @@ const workoutDay = {
       },
     },
   ],
+}
+
+function todayAtLocalTime(hours: number, minutes = 0): number {
+  const [year, month, day] = todayLocalDate().split('-').map(Number)
+  return new Date(year, month - 1, day, hours, minutes, 0, 0).getTime()
 }
 
 function draftKey(userId: string | number = 1) {
@@ -216,11 +221,13 @@ describe('ActiveWorkoutSession P0 persistence', () => {
             },
           },
           notes: 'clock ahead stale',
-          savedAt: Date.now() + 7_200_000,
+          savedAt: todayAtLocalTime(23, 59),
           serverLogId: serverCompleted.id,
           baseServerUpdatedAt: '2020-01-01T00:00:00.000Z',
         }),
       )
+
+      expect(formatLocalDate(new Date(todayAtLocalTime(23, 59)))).toBe(todayLocalDate())
 
       render(
         <ActiveWorkoutSession
@@ -252,7 +259,7 @@ describe('ActiveWorkoutSession P0 persistence', () => {
             },
           },
           notes: 'pending edit',
-          savedAt: Date.now() + 7_200_000,
+          savedAt: todayAtLocalTime(12),
           serverLogId: serverCompleted.id,
           baseServerUpdatedAt: serverCompleted.updated_at,
         }),
@@ -287,7 +294,7 @@ describe('ActiveWorkoutSession P0 persistence', () => {
               overrides: { '1': { reps: 8, weight: 40 } },
             },
           },
-          savedAt: Date.now() + 7_200_000,
+          savedAt: todayAtLocalTime(12),
           serverLogId: 'other-log',
           baseServerUpdatedAt: serverCompleted.updated_at,
         }),
