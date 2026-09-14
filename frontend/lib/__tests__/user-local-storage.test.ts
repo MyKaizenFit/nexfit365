@@ -5,6 +5,7 @@ import {
   getWorkoutSubstitutesStorageKey,
   removeLegacyMealSelectionsKey,
 } from '../user-local-storage'
+import { coalesceInFlight, inFlightRequestCount } from '../request-coalescer'
 
 describe('getMealSelectionsStorageKey', () => {
   it('requires userId and date and is deterministic', () => {
@@ -119,6 +120,13 @@ describe('clearUserLocalDataOnLogout', () => {
     expect(localStorage.getItem('meal-selections-2026-09-09')).toBeNull()
     expect(localStorage.getItem('active_workout_day-1_2026-09-09')).toBeNull()
     expect(localStorage.getItem('nexfit365_cookie_consent')).toBe('accepted')
+  })
+
+  it('clears in-flight GET coalescing so the next user cannot reuse them', () => {
+    void coalesceInFlight('1:GET:/user-stats/', () => new Promise(() => {}))
+    expect(inFlightRequestCount()).toBe(1)
+    clearUserLocalDataOnLogout(1)
+    expect(inFlightRequestCount()).toBe(0)
   })
 })
 
