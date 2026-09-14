@@ -1,6 +1,8 @@
 import {
   clearUserLocalDataOnLogout,
+  getActiveWorkoutStorageKey,
   getMealSelectionsStorageKey,
+  getWorkoutSubstitutesStorageKey,
   removeLegacyMealSelectionsKey,
 } from '../user-local-storage'
 
@@ -117,5 +119,30 @@ describe('clearUserLocalDataOnLogout', () => {
     expect(localStorage.getItem('meal-selections-2026-09-09')).toBeNull()
     expect(localStorage.getItem('active_workout_day-1_2026-09-09')).toBeNull()
     expect(localStorage.getItem('nexfit365_cookie_consent')).toBe('accepted')
+  })
+})
+
+describe('workout storage keys', () => {
+  beforeEach(() => {
+    localStorage.clear()
+  })
+
+  it('scopes active workout and substitutes by user id, day and date', () => {
+    expect(getActiveWorkoutStorageKey(1, 'day-1', '2026-09-09')).toBe('active_workout:1:day-1:2026-09-09')
+    expect(getWorkoutSubstitutesStorageKey(1, 'day-1', '2026-09-09')).toBe(
+      'workout_substitutes:1:day-1:2026-09-09',
+    )
+  })
+
+  it('logout removes current user workout keys and legacy keys, not another user', () => {
+    localStorage.setItem('active_workout:1:day-1:2026-09-09', '{"user":1}')
+    localStorage.setItem('active_workout:2:day-1:2026-09-09', '{"user":2}')
+    localStorage.setItem('active_workout_day-1_2026-09-09', '{"legacy":true}')
+    localStorage.setItem('workout_substitutes:1:day-1:2026-09-09', '{}')
+    clearUserLocalDataOnLogout(1)
+    expect(localStorage.getItem('active_workout:1:day-1:2026-09-09')).toBeNull()
+    expect(localStorage.getItem('workout_substitutes:1:day-1:2026-09-09')).toBeNull()
+    expect(localStorage.getItem('active_workout_day-1_2026-09-09')).toBeNull()
+    expect(localStorage.getItem('active_workout:2:day-1:2026-09-09')).toBe('{"user":2}')
   })
 })

@@ -19,6 +19,10 @@ import { ExerciseVideoPlayer } from './exercise-video-player'
 import { ExerciseCoverThumbnail } from './exercise-cover-thumbnail'
 import { cn } from '@/lib/utils'
 import { formatLocalDate, todayLocalDate } from '@/lib/local-date'
+import { useAuth } from '@/contexts/auth-context'
+import { chooseWorkoutRecoveryState } from '@/lib/choose-workout-recovery-state'
+import { remainingSecondsFromEndsAt } from '@/lib/rest-timer'
+import { getActiveWorkoutStorageKey, getWorkoutSubstitutesStorageKey } from '@/lib/user-local-storage'
 
 // =============================================
 // INPUT NUMÉRICO PARA MÓVIL
@@ -145,29 +149,40 @@ interface RestTimerProps {
 function RestTimer({ defaultSeconds, onComplete, isActive, setIsActive }: RestTimerProps) {
   const [timeLeft, setTimeLeft] = useState(defaultSeconds)
   const [customTime, setCustomTime] = useState(defaultSeconds)
+  const endsAtRef = useRef<number | null>(null)
+  const completedRef = useRef(false)
+
+  const syncFromClock = useCallback(() => {
+    if (!endsAtRef.current) return
+    const next = remainingSecondsFromEndsAt(endsAtRef.current)
+    setTimeLeft(next)
+    if (next <= 0 && !completedRef.current) {
+      completedRef.current = true
+      endsAtRef.current = null
+      setIsActive(false)
+      onComplete()
+      if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+        navigator.vibrate([200, 100, 200])
+      }
+    }
+  }, [onComplete, setIsActive])
 
   useEffect(() => {
-    let interval: NodeJS.Timeout
-
-    if (isActive && timeLeft > 0) {
-      interval = setInterval(() => {
-        setTimeLeft((prev) => {
-          if (prev <= 1) {
-            setIsActive(false)
-            onComplete()
-            // Reproducir sonido de notificación
-            if (typeof window !== 'undefined' && 'vibrate' in navigator) {
-              navigator.vibrate([200, 100, 200])
-            }
-            return 0
-          }
-          return prev - 1
-        })
-      }, 1000)
+    if (!isActive) return
+    if (!endsAtRef.current) {
+      endsAtRef.current = Date.now() + Math.max(0, timeLeft) * 1000
+      completedRef.current = false
     }
-
-    return () => clearInterval(interval)
-  }, [isActive, timeLeft, onComplete, setIsActive])
+    const interval = setInterval(syncFromClock, 1000)
+    const onForeground = () => syncFromClock()
+    document.addEventListener('visibilitychange', onForeground)
+    window.addEventListener('focus', onForeground)
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', onForeground)
+      window.removeEventListener('focus', onForeground)
+    }
+  }, [isActive, syncFromClock])
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
@@ -176,15 +191,21 @@ function RestTimer({ defaultSeconds, onComplete, isActive, setIsActive }: RestTi
   }
 
   const handleStart = () => {
+    completedRef.current = false
+    endsAtRef.current = Date.now() + customTime * 1000
     setTimeLeft(customTime)
     setIsActive(true)
   }
 
   const handlePause = () => {
+    syncFromClock()
+    endsAtRef.current = null
     setIsActive(false)
   }
 
   const handleReset = () => {
+    endsAtRef.current = null
+    completedRef.current = false
     setIsActive(false)
     setTimeLeft(customTime)
   }
@@ -280,12 +301,14 @@ interface ActiveWorkoutSessionProps {
     notes: string
     exercises_data: any[]
     completed?: boolean
-  }) => Promise<void>
+    based_on_updated_at?: string | null
+  }) => Promise<any>
   onComplete: (data: {
     duration_minutes: number
     rating: number
     notes: string
     exercises_data: any[]
+    based_on_updated_at?: string | null
   }) => Promise<void>
 }
 
@@ -336,12 +359,13 @@ export function ActiveWorkoutSession({
   onSaveProgress,
   onComplete
 }: ActiveWorkoutSessionProps) {
-  // Clave para localStorage basada en el día de entrenamiento
-  const workoutStorageKey = workoutDay?.id
-    ? `active_workout_${workoutDay.id}_${todayLocalDate()}`
+  const { user } = useAuth()
+  const userId = user?.id
+  const workoutStorageKey = workoutDay?.id && userId != null
+    ? getActiveWorkoutStorageKey(userId, workoutDay.id, todayLocalDate())
     : null
-  const substituteStorageKey = workoutDay?.id
-    ? `workout_substitutes_${workoutDay.id}_${todayLocalDate()}`
+  const substituteStorageKey = workoutDay?.id && userId != null
+    ? getWorkoutSubstitutesStorageKey(userId, workoutDay.id, todayLocalDate())
     : null
 
   // Función para guardar estado en localStorage
@@ -404,6 +428,65 @@ export function ActiveWorkoutSession({
   const exercises = workoutDay?.exercises || []
   const hasMissingExercises = completedExercises.size < exercises.length
   const isEditingCompletedWorkout = initialDraftLog?.completed === true
+  const knownUpdatedAtRef = useRef<string | null>(initialDraftLog?.updated_at ? String(initialDraftLog.updated_at) : null)
+  const serverLogIdRef = useRef<string | null>(initialDraftLog?.id ? String(initialDraftLog.id) : null)
+  const baseServerUpdatedAtRef = useRef<string | null>(
+    initialDraftLog?.updated_at ? String(initialDraftLog.updated_at) : null,
+  )
+
+  const isStartedRef = useRef(isStarted)
+  isStartedRef.current = isStarted
+  const isPausedRef = useRef(isPaused)
+  isPausedRef.current = isPaused
+  const workoutStartTimeRef = useRef(workoutStartTime)
+  workoutStartTimeRef.current = workoutStartTime
+  const completedExercisesRef = useRef(completedExercises)
+  completedExercisesRef.current = completedExercises
+  const exerciseSetsRef = useRef(exerciseSets)
+  exerciseSetsRef.current = exerciseSets
+  const ratingRef = useRef(rating)
+  ratingRef.current = rating
+  const notesRef = useRef(notes)
+  notesRef.current = notes
+  const currentExerciseIndexRef = useRef(currentExerciseIndex)
+  currentExerciseIndexRef.current = currentExerciseIndex
+  const substituteSelectionsRef = useRef(substituteSelections)
+  substituteSelectionsRef.current = substituteSelections
+  const getCurrentElapsedSecondsRef = useRef<() => number>(() => 0)
+
+  const persistLocalSnapshot = useCallback((extra: Record<string, unknown> = {}) => {
+    const nextElapsed = typeof extra.elapsedSeconds === 'number'
+      ? extra.elapsedSeconds
+      : getCurrentElapsedSecondsRef.current()
+    saveWorkoutState({
+      isStarted: isStartedRef.current,
+      isPaused: isPausedRef.current,
+      elapsedSeconds: nextElapsed,
+      workoutStartTime: workoutStartTimeRef.current,
+      completedExercises: Array.from(completedExercisesRef.current),
+      exerciseSets: exerciseSetsRef.current,
+      currentExerciseIndex: currentExerciseIndexRef.current,
+      rating: ratingRef.current,
+      notes: notesRef.current,
+      substituteSelections: substituteSelectionsRef.current,
+      ...extra,
+      serverLogId: serverLogIdRef.current,
+      baseServerUpdatedAt: baseServerUpdatedAtRef.current,
+    })
+  }, [saveWorkoutState])
+
+  useEffect(() => {
+    if (knownUpdatedAtRef.current) return
+    if (initialDraftLog?.updated_at) {
+      knownUpdatedAtRef.current = String(initialDraftLog.updated_at)
+    }
+    if (initialDraftLog?.id) {
+      serverLogIdRef.current = String(initialDraftLog.id)
+    }
+    if (initialDraftLog?.updated_at) {
+      baseServerUpdatedAtRef.current = String(initialDraftLog.updated_at)
+    }
+  }, [initialDraftLog?.id, initialDraftLog?.updated_at])
 
   const getExerciseStateKey = useCallback((exerciseItem: any) => {
     return String(exerciseItem?.id || exerciseItem?.exercise?.id || '')
@@ -450,6 +533,7 @@ export function ActiveWorkoutSession({
   }, [isOpen, substituteStorageKey])
 
   const persistSubstituteSelections = useCallback((nextState: Record<string, any>) => {
+    substituteSelectionsRef.current = nextState
     setSubstituteSelections(nextState)
     if (!substituteStorageKey || typeof window === 'undefined') return
     try {
@@ -717,55 +801,113 @@ export function ActiveWorkoutSession({
     return `${performance.date}: ${sets.join(' | ')}${extra}`
   }
 
-  // Cargar estado guardado al montar el componente
-  useEffect(() => {
-    if (isOpen && workoutDay) {
-      const savedState = loadWorkoutState()
-      if (savedState) {
-        setIsStarted(savedState.isStarted || false)
-        setIsPaused(savedState.isPaused || false)
-        setWorkoutStartTime(savedState.workoutStartTime || null)
-        setCompletedExercises(normalizeCompletedExercises(savedState.completedExercises || []))
-        setExerciseSets(normalizeExerciseSets(savedState.exerciseSets || {}))
-        setRating(savedState.rating || 0)
-        setNotes(savedState.notes || '')
-
-        if (savedState.isStarted && !savedState.isPaused) {
-          const restoredElapsed = Math.max(0, Number(savedState.elapsedSeconds || 0))
-          const lastSavedAt = typeof savedState.savedAt === 'number' ? savedState.savedAt : Date.now()
-          const deltaSinceSave = Math.max(0, Math.floor((Date.now() - lastSavedAt) / 1000))
-          const nextElapsed = restoredElapsed + deltaSinceSave
-          setElapsedSeconds(nextElapsed)
-          elapsedAtRunningStartRef.current = nextElapsed
-          runningStartedAtRef.current = Date.now()
-        } else {
-          const restoredElapsed = Math.max(0, Number(savedState.elapsedSeconds || 0))
-          setElapsedSeconds(restoredElapsed)
-          elapsedAtRunningStartRef.current = restoredElapsed
-          runningStartedAtRef.current = null
-        }
-      } else if (initialDraftLog) {
-        const restored = hydrateExerciseSetsFromLog(initialDraftLog.exercises_data || [])
-        const restoredElapsed = Math.max(0, Number(initialDraftLog.duration_minutes || 0) * 60)
-        const startTime = Date.now()
-
-        setIsStarted(true)
-        setIsPaused(false)
-        setWorkoutStartTime(startTime)
-        setCompletedExercises(restored.completed)
-        setExerciseSets(restored.sets)
-        setRating(initialDraftLog.rating || 0)
-        setNotes(initialDraftLog.notes || '')
-        setElapsedSeconds(restoredElapsed)
-        elapsedAtRunningStartRef.current = restoredElapsed
-        runningStartedAtRef.current = startTime
-      }
+  const applyLocalSnapshot = useCallback((savedState: any) => {
+    setIsStarted(savedState.isStarted || false)
+    setIsPaused(savedState.isPaused || false)
+    setWorkoutStartTime(savedState.workoutStartTime || null)
+    setCompletedExercises(normalizeCompletedExercises(savedState.completedExercises || []))
+    setExerciseSets(normalizeExerciseSets(savedState.exerciseSets || {}))
+    setRating(savedState.rating || 0)
+    setNotes(savedState.notes || '')
+    if (typeof savedState.currentExerciseIndex === 'number') {
+      setCurrentExerciseIndex(savedState.currentExerciseIndex)
     }
-  }, [isOpen, workoutDay, loadWorkoutState, normalizeCompletedExercises, initialDraftLog, hydrateExerciseSetsFromLog])
+    isStartedRef.current = savedState.isStarted || false
+    isPausedRef.current = savedState.isPaused || false
+    workoutStartTimeRef.current = savedState.workoutStartTime || null
+    completedExercisesRef.current = normalizeCompletedExercises(savedState.completedExercises || [])
+    exerciseSetsRef.current = normalizeExerciseSets(savedState.exerciseSets || {})
+    ratingRef.current = savedState.rating || 0
+    notesRef.current = savedState.notes || ''
+    if (typeof savedState.currentExerciseIndex === 'number') {
+      currentExerciseIndexRef.current = savedState.currentExerciseIndex
+    }
+    if (savedState.substituteSelections && typeof savedState.substituteSelections === 'object') {
+      substituteSelectionsRef.current = savedState.substituteSelections
+    }
+    if (savedState.serverLogId) {
+      serverLogIdRef.current = String(savedState.serverLogId)
+    }
+    if (savedState.baseServerUpdatedAt) {
+      baseServerUpdatedAtRef.current = String(savedState.baseServerUpdatedAt)
+      knownUpdatedAtRef.current = String(savedState.baseServerUpdatedAt)
+    }
+
+    if (savedState.isStarted && !savedState.isPaused) {
+      const restoredElapsed = Math.max(0, Number(savedState.elapsedSeconds || 0))
+      const lastSavedAt = typeof savedState.savedAt === 'number' ? savedState.savedAt : Date.now()
+      const deltaSinceSave = Math.max(0, Math.floor((Date.now() - lastSavedAt) / 1000))
+      const nextElapsed = restoredElapsed + deltaSinceSave
+      setElapsedSeconds(nextElapsed)
+      elapsedAtRunningStartRef.current = nextElapsed
+      runningStartedAtRef.current = Date.now()
+    } else {
+      const restoredElapsed = Math.max(0, Number(savedState.elapsedSeconds || 0))
+      setElapsedSeconds(restoredElapsed)
+      elapsedAtRunningStartRef.current = restoredElapsed
+      runningStartedAtRef.current = null
+    }
+  }, [normalizeCompletedExercises, normalizeExerciseSets])
+
+  const applyServerSnapshot = useCallback((log: any) => {
+    const restored = hydrateExerciseSetsFromLog(log.exercises_data || [])
+    const restoredElapsed = Math.max(0, Number(log.duration_minutes || 0) * 60)
+    const startTime = Date.now()
+    setIsStarted(true)
+    setIsPaused(false)
+    setWorkoutStartTime(startTime)
+    setCompletedExercises(restored.completed)
+    setExerciseSets(restored.sets)
+    setRating(log.rating || 0)
+    setNotes(log.notes || '')
+    setElapsedSeconds(restoredElapsed)
+    elapsedAtRunningStartRef.current = restoredElapsed
+    runningStartedAtRef.current = startTime
+    knownUpdatedAtRef.current = log.updated_at ? String(log.updated_at) : knownUpdatedAtRef.current
+    serverLogIdRef.current = log.id ? String(log.id) : serverLogIdRef.current
+    baseServerUpdatedAtRef.current = log.updated_at ? String(log.updated_at) : baseServerUpdatedAtRef.current
+    isStartedRef.current = true
+    isPausedRef.current = false
+    workoutStartTimeRef.current = startTime
+    completedExercisesRef.current = restored.completed
+    exerciseSetsRef.current = restored.sets
+    ratingRef.current = log.rating || 0
+    notesRef.current = log.notes || ''
+    saveWorkoutState({
+      isStarted: true,
+      isPaused: false,
+      elapsedSeconds: restoredElapsed,
+      workoutStartTime: startTime,
+      completedExercises: Array.from(restored.completed),
+      exerciseSets: restored.sets,
+      rating: log.rating || 0,
+      notes: log.notes || '',
+      serverLogId: serverLogIdRef.current,
+      baseServerUpdatedAt: baseServerUpdatedAtRef.current,
+    })
+  }, [hydrateExerciseSetsFromLog, saveWorkoutState])
+
+  useEffect(() => {
+    if (!isOpen || !workoutDay) return
+    const savedState = loadWorkoutState()
+    const source = chooseWorkoutRecoveryState(savedState, initialDraftLog)
+    if (source === 'local' && savedState) {
+      applyLocalSnapshot(savedState)
+      return
+    }
+    if (source === 'server' && initialDraftLog) {
+      applyServerSnapshot(initialDraftLog)
+    }
+    // Recovery must not re-run just because apply* identities change; that
+    // would overwrite the in-progress session and loop setState.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, workoutDay, loadWorkoutState, initialDraftLog])
 
   // Inicializar sets de ejercicios
   useEffect(() => {
-    if (exercises.length > 0 && Object.keys(exerciseSets).length === 0) {
+    if (exercises.length === 0) return
+    setExerciseSets((prev) => {
+      if (Object.keys(prev).length > 0) return prev
       const initialSets: Record<string, ExerciseSetState> = {}
       exercises.forEach((ex: any) => {
         const exerciseId = getExerciseStateKey(ex)
@@ -779,29 +921,20 @@ export function ActiveWorkoutSession({
           overrides: {},
         }
       })
-      setExerciseSets(initialSets)
-    }
-  }, [exercises, exerciseSets, getExerciseStateKey])
+      return initialSets
+    })
+  }, [exercises, getExerciseStateKey])
 
   // Guardar estado cuando cambian rating o notes (con debounce para evitar demasiadas escrituras)
   useEffect(() => {
     if (!isStarted || !workoutStorageKey) return
 
     const timeoutId = setTimeout(() => {
-      saveWorkoutState({
-        isStarted,
-        isPaused,
-        elapsedSeconds,
-        workoutStartTime,
-        completedExercises: Array.from(completedExercises),
-        exerciseSets,
-        rating,
-        notes
-      })
-    }, 500) // Debounce de 500ms
+      persistLocalSnapshot()
+    }, 500)
 
     return () => clearTimeout(timeoutId)
-  }, [rating, notes]) // Solo cuando cambian rating o notes
+  }, [rating, notes, isStarted, persistLocalSnapshot, workoutStorageKey])
 
   const getCurrentElapsedSeconds = useCallback(() => {
     const savedElapsed = Math.max(elapsedSeconds, elapsedAtRunningStartRef.current || 0)
@@ -814,7 +947,6 @@ export function ActiveWorkoutSession({
     return elapsedAtRunningStartRef.current + delta
   }, [elapsedSeconds, isPaused, isStarted])
 
-  const getCurrentElapsedSecondsRef = useRef(getCurrentElapsedSeconds)
   getCurrentElapsedSecondsRef.current = getCurrentElapsedSeconds
 
   const syncElapsedFromClock = useCallback(() => {
@@ -841,37 +973,24 @@ export function ActiveWorkoutSession({
 
         // Guardar estado cada 5 segundos para no saturar localStorage.
         if (nextElapsed % 5 === 0) {
-          saveWorkoutState({
-            isStarted,
-            isPaused,
+          persistLocalSnapshot({
+            isStarted: true,
+            isPaused: false,
             elapsedSeconds: nextElapsed,
-            workoutStartTime,
-            completedExercises: Array.from(completedExercises),
-            exerciseSets,
-            rating,
-            notes
           })
         }
       }, 1000)
     }
 
     return () => clearInterval(interval)
-  }, [isStarted, isPaused])
+  }, [isStarted, isPaused, persistLocalSnapshot])
 
   useEffect(() => {
     if (!isStarted || typeof document === 'undefined') return
 
     const persistCurrentElapsed = () => {
-      const nextElapsed = syncElapsedFromClock()
-      saveWorkoutState({
-        isStarted,
-        isPaused,
-        elapsedSeconds: nextElapsed,
-        workoutStartTime,
-        completedExercises: Array.from(completedExercises),
-        exerciseSets,
-        rating,
-        notes
+      persistLocalSnapshot({
+        elapsedSeconds: syncElapsedFromClock(),
       })
     }
 
@@ -885,7 +1004,7 @@ export function ActiveWorkoutSession({
       window.removeEventListener('pagehide', persistCurrentElapsed)
       document.removeEventListener('visibilitychange', persistCurrentElapsed)
     }
-  }, [completedExercises, exerciseSets, isPaused, isStarted, notes, rating, saveWorkoutState, syncElapsedFromClock, workoutStartTime])
+  }, [isStarted, persistLocalSnapshot, syncElapsedFromClock])
 
   const persistServerProgress = useCallback(async () => {
     if (!onSaveProgress || isFinishingRef.current) return
@@ -907,6 +1026,7 @@ export function ActiveWorkoutSession({
           notes: string
           exercises_data: ReturnType<typeof buildExercisesData>
           completed?: boolean
+          based_on_updated_at?: string | null
         } = {
           duration_minutes: Math.ceil(getCurrentElapsedSecondsRef.current() / 60),
           rating,
@@ -917,7 +1037,21 @@ export function ActiveWorkoutSession({
         if (isEditingCompletedWorkout) {
           payload.completed = true
         }
-        await onSaveProgress(payload)
+        if (knownUpdatedAtRef.current) {
+          payload.based_on_updated_at = knownUpdatedAtRef.current
+        }
+        const saved = await onSaveProgress(payload)
+        if (saved?.stale) {
+          throw new Error('stale_write')
+        }
+        if (saved?.id) {
+          serverLogIdRef.current = String(saved.id)
+        }
+        if (saved?.updated_at) {
+          knownUpdatedAtRef.current = String(saved.updated_at)
+          baseServerUpdatedAtRef.current = String(saved.updated_at)
+        }
+        persistLocalSnapshot()
         if (!isFinishingRef.current) setAutosaveState('saved')
       } catch {
         if (!isFinishingRef.current) setAutosaveState('error')
@@ -938,6 +1072,7 @@ export function ActiveWorkoutSession({
     isEditingCompletedWorkout,
     notes,
     onSaveProgress,
+    persistLocalSnapshot,
     rating,
   ])
 
@@ -1024,15 +1159,11 @@ export function ActiveWorkoutSession({
           next.delete(String(exerciseId))
         }
 
-        saveWorkoutState({
-          isStarted,
-          isPaused,
-          elapsedSeconds,
-          workoutStartTime,
-          completedExercises: Array.from(next),
+        exerciseSetsRef.current = newSets
+        completedExercisesRef.current = next
+        persistLocalSnapshot({
           exerciseSets: newSets,
-          rating,
-          notes
+          completedExercises: Array.from(next),
         })
 
         return next
@@ -1078,15 +1209,11 @@ export function ActiveWorkoutSession({
           next.delete(String(exerciseId))
         }
 
-        saveWorkoutState({
-          isStarted,
-          isPaused,
-          elapsedSeconds,
-          workoutStartTime,
-          completedExercises: Array.from(next),
+        exerciseSetsRef.current = newSets
+        completedExercisesRef.current = next
+        persistLocalSnapshot({
           exerciseSets: newSets,
-          rating,
-          notes
+          completedExercises: Array.from(next),
         })
 
         return next
@@ -1217,15 +1344,11 @@ export function ActiveWorkoutSession({
           next.delete(String(exerciseId))
         }
 
-        saveWorkoutState({
-          isStarted,
-          isPaused,
-          elapsedSeconds,
-          workoutStartTime,
-          completedExercises: Array.from(next),
+        exerciseSetsRef.current = newSets
+        completedExercisesRef.current = next
+        persistLocalSnapshot({
           exerciseSets: newSets,
-          rating,
-          notes
+          completedExercises: Array.from(next),
         })
 
         return next
@@ -1244,15 +1367,9 @@ export function ActiveWorkoutSession({
         next.add(exerciseId)
       }
 
-      saveWorkoutState({
-        isStarted,
-        isPaused,
-        elapsedSeconds,
-        workoutStartTime,
+      completedExercisesRef.current = next
+      persistLocalSnapshot({
         completedExercises: Array.from(next),
-        exerciseSets,
-        rating,
-        notes
       })
 
       return next
@@ -1269,16 +1386,14 @@ export function ActiveWorkoutSession({
     runningStartedAtRef.current = startTime
     elapsedAtRunningStartRef.current = 0
 
-    // Guardar estado inicial
-    saveWorkoutState({
+    isStartedRef.current = true
+    isPausedRef.current = false
+    workoutStartTimeRef.current = startTime
+    persistLocalSnapshot({
       isStarted: true,
       isPaused: false,
       elapsedSeconds: 0,
       workoutStartTime: startTime,
-      completedExercises: Array.from(completedExercises),
-      exerciseSets,
-      rating,
-      notes
     })
 
     toast({
@@ -1300,16 +1415,10 @@ export function ActiveWorkoutSession({
       elapsedAtRunningStartRef.current = currentElapsed
     }
 
-    // Guardar estado al pausar/reanudar
-    saveWorkoutState({
-      isStarted,
+    isPausedRef.current = newPausedState
+    persistLocalSnapshot({
       isPaused: newPausedState,
       elapsedSeconds: currentElapsed,
-      workoutStartTime,
-      completedExercises: Array.from(completedExercises),
-      exerciseSets,
-      rating,
-      notes
     })
   }
 
@@ -1323,27 +1432,22 @@ export function ActiveWorkoutSession({
     setConfirmMissingExercises(false)
     setShowFinishDialog(true)
 
-    // Guardar estado al pausar
-    saveWorkoutState({
-      isStarted,
+    isPausedRef.current = true
+    persistLocalSnapshot({
       isPaused: true,
       elapsedSeconds: currentElapsed,
-      workoutStartTime,
-      completedExercises: Array.from(completedExercises),
-      exerciseSets,
-      rating,
-      notes
     })
   }
 
   // Finalizar entrenamiento
   const handleFinish = async () => {
+    if (isFinishingRef.current) return
     if (hasMissingExercises && !confirmMissingExercises) {
       setConfirmMissingExercises(true)
       return
     }
-    setIsSaving(true)
     isFinishingRef.current = true
+    setIsSaving(true)
     const finalElapsedSeconds = syncElapsedFromClock()
 
     try {
@@ -1362,7 +1466,8 @@ export function ActiveWorkoutSession({
         duration_minutes: Math.ceil(finalElapsedSeconds / 60),
         rating: rating,
         notes: notes,
-        exercises_data: exercisesData
+        exercises_data: exercisesData,
+        based_on_updated_at: knownUpdatedAtRef.current,
       })
 
       toast({

@@ -1690,7 +1690,7 @@ export function WorkoutDashboardEnhanced() {
           workoutLogs={workoutLogs}
           onSaveProgress={async (data) => {
             if (!selectedDay?.id) return
-            await saveWorkoutProgress(String(selectedDay.id), data)
+            return await saveWorkoutProgress(String(selectedDay.id), data)
           }}
           onComplete={async (data) => {
             if (!selectedDay) return
@@ -1702,7 +1702,8 @@ export function WorkoutDashboardEnhanced() {
                 data.notes,
                 data.duration_minutes,
                 data.rating,
-                data.exercises_data
+                data.exercises_data,
+                data.based_on_updated_at,
               ).catch((error: any) => {
                 // Manejar errores de forma más clara
                 let errorMessage = 'Error desconocido al guardar entrenamiento'

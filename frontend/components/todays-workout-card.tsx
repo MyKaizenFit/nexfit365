@@ -527,12 +527,13 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
           isOpen={showActiveWorkout}
           onClose={() => setShowActiveWorkout(false)}
           onSaveProgress={async (data) => {
-            await saveWorkoutProgress(todaysWorkout.id, {
+            return await saveWorkoutProgress(todaysWorkout.id, {
               notes: data.notes,
               duration_minutes: data.duration_minutes,
               rating: data.rating,
               exercises_data: data.exercises_data,
-              completed: data.completed ?? false,
+              completed: data.completed,
+              based_on_updated_at: data.based_on_updated_at,
             })
           }}
           onComplete={async (data) => {
@@ -543,6 +544,7 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
                 data.duration_minutes,
                 data.rating,
                 data.exercises_data,
+                data.based_on_updated_at,
               )
               await refreshData()
               setShowActiveWorkout(false)
