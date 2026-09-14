@@ -1,7 +1,7 @@
 // hooks/use-workouts.ts
 // Hook para manejar rutinas de ejercicios con datos reales del backend
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { buildApiUrl, authenticatedFetch } from '@/lib/api'
 import { todayLocalDate } from '@/lib/local-date'
@@ -150,31 +150,43 @@ export function useWorkouts() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [hasAuthError, setHasAuthError] = useState(false)
+  const cancelledRef = useRef(false)
 
   // Cargar datos iniciales
   useEffect(() => {
-    if (isAuthenticated) {
-      // Agregar un pequeño delay para evitar peticiones simultáneas
-      const timer = setTimeout(() => {
-        loadWorkoutData()
-      }, 100)
+    cancelledRef.current = false
 
-      return () => clearTimeout(timer)
-    } else {
-      // Limpiar datos cuando el usuario se desloguea
-      setWorkoutPrograms([])
-      setActiveProgram(null)
-      setTemplates([])
-      setExercises([])
-      setWorkoutLogs([])
-      setLoading(false)
-      setError(null)
-      setHasAuthError(false)
+    if (isAuthenticated) {
+      void loadWorkoutData()
+      return () => {
+        cancelledRef.current = true
+      }
     }
+
+    setWorkoutPrograms([])
+    setActiveProgram(null)
+    setTemplates([])
+    setExercises([])
+    setWorkoutLogs([])
+    setLoading(false)
+    setError(null)
+    setHasAuthError(false)
+    return undefined
   }, [isAuthenticated])
 
+  const loadSecondaryWorkoutData = async () => {
+    // ponytail: full program/template/exercise/log catalogs still load after first paint;
+    // split today-only logs or lazy catalog if those endpoints exist later.
+    await Promise.allSettled([
+      fetchWorkoutPrograms(),
+      fetchTemplates(),
+      fetchExercises(),
+      fetchWorkoutLogs(),
+      fetchWorkoutStatistics(),
+    ])
+  }
+
   const loadWorkoutData = async () => {
-    // No cargar datos si el usuario no está autenticado
     if (!isAuthenticated) {
       setLoading(false)
       return
@@ -185,25 +197,15 @@ export function useWorkouts() {
       setError(null)
       setHasAuthError(false)
 
-      // Cargar de forma secuencial para evitar rate limiting
-      await fetchWorkoutPrograms()
-      await new Promise(resolve => setTimeout(resolve, 200)) // Pequeño delay
-
       await fetchActiveProgram()
-      await new Promise(resolve => setTimeout(resolve, 200))
-
-      await fetchTemplates()
-      await new Promise(resolve => setTimeout(resolve, 200))
-
-      await fetchExercises()
-      await new Promise(resolve => setTimeout(resolve, 200))
-
-      await fetchWorkoutLogs()
+      if (cancelledRef.current) return
+      setLoading(false)
+      void loadSecondaryWorkoutData()
     } catch (err) {
+      if (cancelledRef.current) return
       const message = err instanceof Error ? err.message : 'Error al cargar datos de entrenamiento'
       setError(message)
       setHasAuthError(isAuthSessionError(message))
-    } finally {
       setLoading(false)
     }
   }
@@ -221,6 +223,7 @@ export function useWorkouts() {
       const data = await response.json()
 
       if (response.ok) {
+        if (cancelledRef.current) return
         setWorkoutPrograms(data.results || data)
       } else {
         throw new Error(data.detail || 'Error al obtener programas de entrenamiento')
@@ -245,6 +248,7 @@ export function useWorkouts() {
         const data = await response.json()
         // El API devuelve { program: {...} } o { program: null }
         const program = data.program || data
+        if (cancelledRef.current) return
         if (program && program.id) {
           // Asegurar que days siempre sea un array
           setActiveProgram({
@@ -255,6 +259,7 @@ export function useWorkouts() {
           setActiveProgram(null)
         }
       } else if (response.status === 404) {
+        if (cancelledRef.current) return
         setActiveProgram(null)
       } else {
         const data = await response.json()
@@ -276,6 +281,7 @@ export function useWorkouts() {
       const data = await response.json()
 
       if (response.ok) {
+        if (cancelledRef.current) return
         setTemplates(data)
       } else {
         throw new Error(data.detail || 'Error al obtener plantillas')
@@ -296,6 +302,7 @@ export function useWorkouts() {
       const data = await response.json()
 
       if (response.ok) {
+        if (cancelledRef.current) return
         setExercises(data.results || data)
       } else {
         throw new Error(data.detail || 'Error al obtener ejercicios')
@@ -317,13 +324,8 @@ export function useWorkouts() {
 
       if (response.ok) {
         const logs = data.results || data
+        if (cancelledRef.current) return
         setWorkoutLogs(logs)
-
-        // Log para depuración
-        if (logs.length > 0) {
-          const lastLog = logs[0] // El más reciente
-          // (debug object removed)
-        }
       } else {
         throw new Error(data.detail || 'Error al obtener logs de entrenamiento')
       }
@@ -732,6 +734,7 @@ export function useWorkouts() {
       const data = await response.json()
 
       if (response.ok) {
+        if (cancelledRef.current) return null
         setWorkoutStatistics(data)
         return data
       } else {
@@ -741,13 +744,6 @@ export function useWorkouts() {
       return null
     }
   }
-
-  // Cargar estadísticas cuando se cargan los datos
-  useEffect(() => {
-    if (isAuthenticated && workoutLogs.length >= 0) {
-      fetchWorkoutStatistics()
-    }
-  }, [isAuthenticated, workoutLogs.length])
 
   // Obtener progreso semanal (compatibilidad con código existente)
   const getWeeklyProgress = () => {
