@@ -10,6 +10,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.shortcuts import get_object_or_404
 from django.db import DatabaseError, IntegrityError, transaction
 from django.db import models as django_db_models
+from django.db.models import Count
 from django.utils import timezone
 from datetime import timezone as datetime_timezone
 import logging
@@ -171,11 +172,15 @@ class WorkoutProgramViewSet(viewsets.ModelViewSet):
             return WorkoutProgram.objects.none()
         user = self.request.user
         # Mostrar programas del sistema y los propios del usuario
-        return WorkoutProgram.objects.filter(
+        qs = WorkoutProgram.objects.filter(
             is_active=True
         ).filter(
             models.Q(is_system=True) | models.Q(user=user)
-        ).prefetch_related(
+        )
+        if self.action == "list":
+            # El serializer mínimo solo necesita days_count; no cargar el árbol de ejercicios.
+            return qs.annotate(days_count_annotated=Count("days"))
+        return qs.prefetch_related(
             'days__exercises__exercise',
             'days__exercises__exercise__substitutions__substitute',
         )
@@ -223,7 +228,7 @@ class WorkoutProgramViewSet(viewsets.ModelViewSet):
         """Programas del usuario actual"""
         programs = WorkoutProgram.objects.filter(
             user=request.user, is_active=True
-        )
+        ).annotate(days_count_annotated=Count("days"))
         serializer = WorkoutProgramMinimalSerializer(programs, many=True)
         return Response(serializer.data)
     
@@ -278,7 +283,7 @@ class WorkoutProgramViewSet(viewsets.ModelViewSet):
         """Plantillas disponibles"""
         templates = WorkoutProgram.objects.filter(
             is_template=True, is_active=True
-        )
+        ).annotate(days_count_annotated=Count("days"))
         serializer = WorkoutProgramMinimalSerializer(templates, many=True)
         return Response(serializer.data)
     
@@ -288,10 +293,7 @@ class WorkoutProgramViewSet(viewsets.ModelViewSet):
         try:
             templates = WorkoutProgram.objects.filter(
                 is_template=True, is_active=True
-            ).prefetch_related(
-                'days__exercises__exercise',
-                'days__exercises__exercise__substitutions__substitute',
-            )
+            ).annotate(days_count_annotated=Count("days"))
             serializer = WorkoutProgramMinimalSerializer(templates, many=True)
             return Response(serializer.data)
         except DatabaseError as exc:
@@ -442,7 +444,11 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):
             return WorkoutLog.objects.none()
-        qs = WorkoutLog.objects.filter(user=self.request.user)
+        qs = (
+            WorkoutLog.objects.filter(user=self.request.user)
+            .select_related("workout_day")
+            .prefetch_related("log_exercises__sets")
+        )
         if self.request.query_params.get('include_drafts') not in {'1', 'true', 'True', 'yes'}:
             qs = qs.filter(completed=True)
         return qs
