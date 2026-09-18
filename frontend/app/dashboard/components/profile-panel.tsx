@@ -19,6 +19,7 @@ import { NutritionPreview } from "./nutrition-preview"
 import { calculateNutritionPlan, type CalculatedMacros } from "@/lib/nutrition-calculator"
 import { nutritionService } from "@/lib/nutrition-service"
 import { getAuthHeaders, buildApiUrl } from "@/lib/api"
+import { downloadBlob } from "@/lib/download-blob"
 
 export const ProfilePanel = memo(function ProfilePanel() {
   const [isEditing, setIsEditing] = useState(false)
@@ -282,13 +283,11 @@ export const ProfilePanel = memo(function ProfilePanel() {
         credentials: 'include', headers })
       if (!response.ok) throw new Error('Error exportando datos')
       const blob = await response.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = 'mis_datos_nexfit365.json'
-      a.click()
-      URL.revokeObjectURL(url)
-      toast({ title: 'Datos exportados', description: 'Tu archivo JSON se ha descargado.' })
+      downloadBlob(blob, 'mis_datos_nexfit365.json')
+      toast({
+        title: 'Datos exportados',
+        description: 'Se ha descargado mis_datos_nexfit365.json en este dispositivo. Revisa la carpeta de descargas del navegador.',
+      })
     } catch {
       toast({ title: 'Error', description: 'No se pudieron exportar los datos.', variant: 'destructive' })
     } finally {
@@ -849,6 +848,9 @@ export const ProfilePanel = memo(function ProfilePanel() {
               {gdprDeleting ? 'Enviando solicitud...' : 'Solicitar eliminación de cuenta'}
             </Button>
           </div>
+          <p className="text-xs text-muted-foreground">
+            Exportar descarga un archivo JSON en este navegador (no se envía por correo).
+          </p>
           <p className="text-xs text-muted-foreground">
             La solicitud de eliminación será procesada por el equipo en un plazo máximo de 30 días.
             Recibirás un email de confirmación.
