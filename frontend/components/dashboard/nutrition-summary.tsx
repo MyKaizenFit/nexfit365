@@ -5,6 +5,7 @@ import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { Flame, Zap, Apple, Droplets, Info, Target, CheckCircle, AlertCircle, Trophy } from "lucide-react"
 import { formatMacro } from "@/lib/utils"
+import { nutritionBarPercent, nutritionGoalPercent } from "@/lib/nutrition-progress"
 
 interface NutritionSummaryProps {
   caloriesConsumed: number
@@ -41,7 +42,8 @@ export function NutritionSummary({
   className = ""
 }: NutritionSummaryProps) {
   // Calcular porcentajes
-  const caloriesProgress = Math.min((caloriesConsumed / caloriesGoal) * 100, 100)
+  const caloriesPercent = nutritionGoalPercent(caloriesConsumed, caloriesGoal)
+  const caloriesProgress = nutritionBarPercent(caloriesPercent)
   const proteinProgress = Math.min((proteinConsumed / proteinGoal) * 100, 100)
   const carbsProgress = Math.min((carbsConsumed / carbsGoal) * 100, 100)
   const fatProgress = Math.min((fatConsumed / fatGoal) * 100, 100)
@@ -92,11 +94,11 @@ export function NutritionSummary({
 
   // Obtener mensaje motivacional
   const getMotivationalMessage = () => {
-    if (caloriesProgress >= 90 && caloriesProgress <= 110) {
+    if (caloriesPercent >= 90 && caloriesPercent <= 110) {
       return "🎯 ¡Perfecto! Has alcanzado tu objetivo de calorías"
-    } else if (caloriesProgress < 70) {
+    } else if (caloriesPercent < 70) {
       return "💪 ¡Sigue así! Aún tienes calorías por consumir"
-    } else if (caloriesProgress > 130) {
+    } else if (caloriesPercent > 130) {
       return "⚠️ Has excedido tu objetivo. Considera ajustar para mañana"
     } else {
       return "🚀 ¡Buen progreso! Estás cerca de tu objetivo"
@@ -159,7 +161,7 @@ export function NutritionSummary({
         {/* Calorías principales */}
         <div className="text-center space-y-4">
           <div className="text-4xl font-bold text-red-600">
-            {caloriesConsumed} / {caloriesGoal}
+            {caloriesConsumed} / {caloriesGoal} ({Math.round(caloriesPercent)}%)
           </div>
           <p className="text-sm text-muted-foreground">kcal consumidas</p>
 

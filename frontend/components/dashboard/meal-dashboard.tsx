@@ -314,7 +314,7 @@ export function MealDashboard() {
                   )}
                   {meal.isSkipped && (
                     <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-black text-amber-700 shadow-sm">
-                      No como
+                      Omitida hoy
                     </span>
                   )}
                 </div>
@@ -379,7 +379,7 @@ export function MealDashboard() {
                         className="flex items-center justify-center gap-1 rounded-xl bg-emerald-50 px-2 py-2 text-xs font-bold text-emerald-700 transition-colors hover:bg-emerald-100"
                       >
                         <Shuffle className="h-3.5 w-3.5" />
-                        <span>Receta equivalencia</span>
+                        <span>Cambiar ingrediente</span>
                       </button>
                       <button
                         type="button"
@@ -387,7 +387,7 @@ export function MealDashboard() {
                         className="flex items-center justify-center gap-1 rounded-xl bg-gray-50 px-2 py-2 text-xs font-bold text-gray-700 transition-colors hover:bg-gray-100"
                       >
                         <Pencil className="h-3.5 w-3.5" />
-                        <span>Cambiar</span>
+                        <span>Cambiar receta</span>
                       </button>
                       {isPreview ? (
                         <button
@@ -422,7 +422,7 @@ export function MealDashboard() {
                           className="flex items-center justify-center gap-1 rounded-xl bg-amber-50 px-2 py-2 text-xs font-bold text-amber-700 transition-colors hover:bg-amber-100"
                         >
                           <SkipForward className="h-3.5 w-3.5" />
-                          <span>No como</span>
+                          <span>Hoy no como esto</span>
                         </button>
                       ) : (
                         <button

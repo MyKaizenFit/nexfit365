@@ -2,6 +2,7 @@
 
 import React from 'react'
 import { formatMacro } from '@/lib/utils'
+import { nutritionBarPercent, nutritionGoalPercent } from '@/lib/nutrition-progress'
 
 interface DailyMacroTrackerSimpleProps {
   caloriesConsumed: number
@@ -25,13 +26,19 @@ export function DailyMacroTrackerSimple({
   fatGoal
 }: DailyMacroTrackerSimpleProps) {
   const calculatePercentage = (consumed: number, goal: number): number => {
-    if (goal === 0) return 0
-    return Math.min(Math.round((consumed / goal) * 100), 100)
+    return Math.round(nutritionGoalPercent(consumed, goal))
   }
 
-  const calculateRemaining = (consumed: number, goal: number): number => {
-    return Math.max(goal - consumed, 0)
+  const barWidth = (consumed: number, goal: number): number => {
+    return nutritionBarPercent(nutritionGoalPercent(consumed, goal))
   }
+
+  const remainingCopy = (consumed: number, goal: number, unit: string): string => {
+    const remaining = goal - consumed
+    if (remaining >= 0) return `Faltan ${formatMacro(remaining)}${unit}`
+    return `Superado ${formatMacro(-remaining)}${unit}`
+  }
+
 
   return (
     <div className="w-full p-6 bg-card rounded-lg border border-border shadow-sm">
@@ -88,13 +95,13 @@ export function DailyMacroTrackerSimple({
             </div>
             <div className="text-right">
               <div className="text-sm font-medium text-foreground">{formatMacro(proteinConsumed)}/{formatMacro(proteinGoal)}g</div>
-              <div className="text-xs text-muted-foreground">Faltan {formatMacro(calculateRemaining(proteinConsumed, proteinGoal))}g</div>
+              <div className="text-xs text-muted-foreground">{remainingCopy(proteinConsumed, proteinGoal, 'g')}</div>
             </div>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
             <div 
               className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-              style={{ width: `${calculatePercentage(proteinConsumed, proteinGoal)}%` }}
+              style={{ width: `${barWidth(proteinConsumed, proteinGoal)}%` }}
             />
           </div>
         </div>
@@ -107,13 +114,13 @@ export function DailyMacroTrackerSimple({
             </div>
             <div className="text-right">
               <div className="text-sm font-medium text-foreground">{formatMacro(carbsConsumed)}/{formatMacro(carbsGoal)}g</div>
-              <div className="text-xs text-muted-foreground">Faltan {formatMacro(calculateRemaining(carbsConsumed, carbsGoal))}g</div>
+              <div className="text-xs text-muted-foreground">{remainingCopy(carbsConsumed, carbsGoal, 'g')}</div>
             </div>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
             <div 
               className="bg-green-500 h-2 rounded-full transition-all duration-300"
-              style={{ width: `${calculatePercentage(carbsConsumed, carbsGoal)}%` }}
+              style={{ width: `${barWidth(carbsConsumed, carbsGoal)}%` }}
             />
           </div>
         </div>
@@ -126,13 +133,13 @@ export function DailyMacroTrackerSimple({
             </div>
             <div className="text-right">
               <div className="text-sm font-medium text-foreground">{formatMacro(fatConsumed)}/{formatMacro(fatGoal)}g</div>
-              <div className="text-xs text-muted-foreground">Faltan {formatMacro(calculateRemaining(fatConsumed, fatGoal))}g</div>
+              <div className="text-xs text-muted-foreground">{remainingCopy(fatConsumed, fatGoal, 'g')}</div>
             </div>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
             <div 
               className="bg-yellow-500 h-2 rounded-full transition-all duration-300"
-              style={{ width: `${calculatePercentage(fatConsumed, fatGoal)}%` }}
+              style={{ width: `${barWidth(fatConsumed, fatGoal)}%` }}
             />
           </div>
         </div>
@@ -142,12 +149,12 @@ export function DailyMacroTrackerSimple({
       <div className="pt-4 border-t border-border">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-medium text-foreground">Calorías del día</span>
-          <span className="text-sm text-foreground">{caloriesConsumed} / {caloriesGoal} kcal</span>
+          <span className="text-sm text-foreground">{caloriesConsumed} / {caloriesGoal} kcal ({calculatePercentage(caloriesConsumed, caloriesGoal)}%)</span>
         </div>
         <div className="w-full bg-gray-200 rounded-full h-2">
           <div 
             className="bg-orange-500 h-2 rounded-full transition-all duration-300"
-            style={{ width: `${calculatePercentage(caloriesConsumed, caloriesGoal)}%` }}
+            style={{ width: `${barWidth(caloriesConsumed, caloriesGoal)}%` }}
           />
         </div>
       </div>

@@ -116,11 +116,11 @@ describe('MealSelectionModal recommendations', () => {
     expect(screen.getAllByText('kcal').length).toBeGreaterThan(0)
     expect(screen.getAllByText(/prot/i).length).toBeGreaterThan(0)
     expect(screen.getAllByRole('button', { name: /Ver receta/i }).length).toBeGreaterThan(0)
-    expect(screen.getAllByRole('button', { name: /Ver equivalencias/i }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('button', { name: /Cambiar ingrediente/i }).length).toBeGreaterThan(0)
     expect(screen.getByText('Seleccionada')).toBeInTheDocument()
     expect(screen.getByText(/Selecciona una opción para cena/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /No como ninguna de estas/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Receta equivalencia/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Cambiar receta/i })).toBeInTheDocument()
 
     const names = screen.getAllByRole('heading', { level: 4 }).map((el) => el.textContent)
     expect(names[0]).toContain('Cena ligera')
