@@ -185,6 +185,22 @@ class WeightEntrySerializer(serializers.ModelSerializer):
                 )
         return attrs
 
+    def _sync_user_weight(self, user, weight):
+        from dashboard.models import UserStats
+        from dashboard.user_cache import invalidate_user_dashboard_cache
+
+        stats, _ = UserStats.objects.get_or_create(user=user)
+        stats.current_weight = weight
+        stats.save(update_fields=["current_weight"])
+        user.weight = weight
+        user.save(update_fields=["weight"])
+        invalidate_user_dashboard_cache(user.pk)
+
+    def update(self, instance, validated_data):
+        entry = super().update(instance, validated_data)
+        self._sync_user_weight(entry.user, entry.weight)
+        return entry
+
     def create(self, validated_data):
         """Crear entrada de peso con usuario del request"""
         from decimal import Decimal
@@ -224,6 +240,8 @@ class WeightEntrySerializer(serializers.ModelSerializer):
 
             user.weight = validated_data["weight"]
             user.save(update_fields=["weight"])
+            from dashboard.user_cache import invalidate_user_dashboard_cache
+            invalidate_user_dashboard_cache(user.pk)
 
             entry = WeightEntry.objects.create(
                 user=user,
@@ -301,8 +319,38 @@ class BodyMeasurementSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 "Al menos una medida debe estar presente"
             )
-        
+
+        request = self.context.get("request")
+        user = data.get("user") or (request.user if request else None)
+        entry_date = data.get("date") or getattr(self.instance, "date", None)
+        if user and entry_date:
+            qs = BodyMeasurement.objects.filter(user=user, date=entry_date)
+            if self.instance is not None:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise serializers.ValidationError(
+                    {"date": "Ya existe un registro de medidas para esta fecha."}
+                )
+
         return data
+
+    def create(self, validated_data):
+        instance = super().create(validated_data)
+        try:
+            from dashboard.user_cache import invalidate_user_dashboard_cache
+            invalidate_user_dashboard_cache(instance.user_id)
+        except Exception:
+            pass
+        return instance
+
+    def update(self, instance, validated_data):
+        entry = super().update(instance, validated_data)
+        try:
+            from dashboard.user_cache import invalidate_user_dashboard_cache
+            invalidate_user_dashboard_cache(entry.user_id)
+        except Exception:
+            pass
+        return entry
 
 
 class ProgressSummarySerializer(serializers.Serializer):
