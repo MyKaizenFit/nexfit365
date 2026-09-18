@@ -276,7 +276,7 @@ export function MealDashboard() {
             return (
             <div
               key={meal.id}
-              className={`group overflow-hidden rounded-2xl border bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg dark:bg-card ${
+              className={`group overflow-hidden rounded-2xl border bg-white shadow-sm dark:bg-card ${
                 meal.isCompleted
                   ? 'border-emerald-200 dark:border-emerald-700/50'
                   : displayOption
