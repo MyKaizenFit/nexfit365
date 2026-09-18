@@ -183,6 +183,30 @@ class TestDashboardViews:
         assert response.status_code == status.HTTP_200_OK
         assert response.data is not None
 
+    def test_saving_weight_busts_dashboard_today_cache(self, auth_headers, member_user):
+        from decimal import Decimal
+        from django.core.cache import cache
+        from django.utils import timezone
+        from progress.models import WeightEntry
+
+        cache.clear()
+        today_url = reverse("dashboard-today")
+        first = auth_headers.get(today_url)
+        assert first.status_code == status.HTTP_200_OK
+        assert first.data.get("current_weight") in (None, 0, 0.0)
+
+        create = auth_headers.post(
+            reverse("weight-history-list"),
+            {"weight": "81.20", "date": timezone.localdate().isoformat()},
+            format="json",
+        )
+        assert create.status_code == status.HTTP_201_CREATED
+
+        refreshed = auth_headers.get(today_url)
+        assert refreshed.status_code == status.HTTP_200_OK
+        assert float(refreshed.data["current_weight"]) == pytest.approx(81.2)
+        assert WeightEntry.objects.filter(user=member_user).count() == 1
+
 
 @pytest.mark.django_db
 class TestDashboardQueryset:
