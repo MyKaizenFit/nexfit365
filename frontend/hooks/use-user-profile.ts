@@ -19,29 +19,32 @@ export function useUserProfile() {
     }
   }, [isAuthenticated, authUser])
 
-  const fetchUserProfile = async () => {
+  const fetchUserProfile = async (forceRefresh = false) => {
     try {
-      setLoading(true)
+      if (!profile) {
+        setLoading(true)
+      }
       setError(null)
 
-      const data = await userService.getUserProfile()
+      const data = await userService.getUserProfile(forceRefresh)
       setProfile(data)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al obtener perfil')
-      
-      // Si falla, usar datos básicos del contexto de autenticación
-      if (authUser) {
-        setProfile({
-          id: parseInt(authUser.id.toString()),
-          email: authUser.email,
-          first_name: authUser.first_name,
-          last_name: authUser.last_name,
-          role: authUser.role,
-          is_staff: authUser.is_staff,
-          is_superuser: authUser.is_superuser,
-          is_verified: authUser.is_verified,
-          date_joined: authUser.date_joined,
-        })
+      const errorMessage = err instanceof Error ? err.message : 'Error al obtener perfil'
+      if (!profile) {
+        setError(errorMessage)
+        if (authUser) {
+          setProfile({
+            id: parseInt(authUser.id.toString()),
+            email: authUser.email,
+            first_name: authUser.first_name,
+            last_name: authUser.last_name,
+            role: authUser.role,
+            is_staff: authUser.is_staff,
+            is_superuser: authUser.is_superuser,
+            is_verified: authUser.is_verified,
+            date_joined: authUser.date_joined,
+          })
+        }
       }
     } finally {
       setLoading(false)
@@ -60,7 +63,7 @@ export function useUserProfile() {
       try {
         await refreshUser()
       } catch {
-        // Si falla la actualización del contexto, no bloquea el guardado del perfil.
+        // No bloquear ni cerrar sesión: el PATCH ya guardó.
       }
 
       if ((updates.profile_picture as any) instanceof File) {
@@ -77,13 +80,12 @@ export function useUserProfile() {
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error al actualizar perfil'
-      setError(errorMessage)
       throw new Error(errorMessage)
     }
   }
 
-  const refreshProfile = () => {
-    fetchUserProfile()
+  const refreshProfile = async () => {
+    await fetchUserProfile(true)
   }
 
   return {
