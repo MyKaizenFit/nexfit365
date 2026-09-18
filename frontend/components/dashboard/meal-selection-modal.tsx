@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { IngredientSubstitution, IngredientSubstitutionResponse, MealIngredientSubstitution, MealOption, MealRecommendationLevel, nutritionService, Recipe, PersonalizedRecipeQuantities } from '@/lib/nutrition-service'
+import { buildMealOptionFromSubstitution, overlaySubstitutionsOnIngredients } from '@/lib/meal-substitution'
 import { API_CONFIG } from '@/lib/api'
 import { X, Clock, Zap, Leaf, ChefHat, Target, Users, BookOpen, Loader2, Shuffle, ArrowLeft, ChevronRight } from 'lucide-react'
 import { formatMacro } from '@/lib/utils'
@@ -117,6 +118,7 @@ export function MealSelectionModal({
     recipe: Recipe
     personalized: PersonalizedRecipeQuantities
     userProfile: any
+    substitutionDetails?: MealOption['substitution_details']
   } | null>(null)
   const [loadingRecipe, setLoadingRecipe] = useState(false)
   const [excludedRecipeIds, setExcludedRecipeIds] = useState<Set<string>>(new Set())
@@ -241,7 +243,8 @@ export function MealSelectionModal({
         setRecipeData({
           recipe: data.recipe,
           personalized,
-          userProfile: data.user_profile
+          userProfile: data.user_profile,
+          substitutionDetails: option.substitution_details || [],
         })
         setShowRecipe(true)
       } else {
@@ -284,7 +287,8 @@ export function MealSelectionModal({
                 main_goal: 'maintain',
                 activity_level: 'moderate',
                 daily_calories_target: 2000
-              }
+              },
+              substitutionDetails: option.substitution_details || [],
             })
             setShowRecipe(true)
           } else {
@@ -828,6 +832,11 @@ export function MealSelectionModal({
           personalized={recipeData.personalized}
           userProfile={recipeData.userProfile}
           mealName={mealName}
+          substitutionDetails={recipeData.substitutionDetails}
+          onChangeIngredient={() => {
+            setShowRecipe(false)
+            handleViewAllRecipes(recipeData.recipe.id, { equivalenceOnly: true })
+          }}
           onClose={() => setShowRecipe(false)}
           onSelectRecipe={() => {
             // Convertir receta a MealOption y seleccionar
@@ -842,7 +851,8 @@ export function MealSelectionModal({
               icon: "🍽️",
               description: recipeData.recipe.description,
               recipeId: recipeData.recipe.id,
-              imageUrl: recipeData.recipe.image_url || ''
+              imageUrl: recipeData.recipe.image_url || '',
+              substitution_details: recipeData.substitutionDetails || [],
             }
             handleSelectOption(recipeOption)
             setShowRecipe(false)
@@ -969,6 +979,8 @@ interface RecipeDetailModalProps {
   personalized: PersonalizedRecipeQuantities
   userProfile: any
   mealName: string
+  substitutionDetails?: MealOption['substitution_details']
+  onChangeIngredient?: () => void
   onClose: () => void
   onSelectRecipe: () => void
 }
@@ -978,6 +990,8 @@ function RecipeDetailModal({
   personalized,
   userProfile,
   mealName,
+  substitutionDetails,
+  onChangeIngredient,
   onClose,
   onSelectRecipe
 }: RecipeDetailModalProps) {
@@ -1108,8 +1122,17 @@ function RecipeDetailModal({
                 <BookOpen className="w-6 h-6 md:w-5 md:h-5 text-orange-500 flex-shrink-0" />
                 <span>Ingredientes</span>
               </h3>
+              {substitutionDetails && substitutionDetails.length > 0 && (
+                <div className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                  {substitutionDetails.map((item, index) => (
+                    <p key={`${item.replacement_food_id}-${index}`}>
+                      Cambio: {item.original_food_name} por {item.replacement_quantity}{item.replacement_unit} de {item.replacement_food_name}
+                    </p>
+                  ))}
+                </div>
+              )}
               <div className="bg-gray-50 rounded-xl md:rounded-lg p-5 md:p-4 space-y-3 md:space-y-2">
-                {personalized.ingredients.map((ingredient, index) => {
+                {overlaySubstitutionsOnIngredients(personalized.ingredients, substitutionDetails).map((ingredient, index) => {
                   const amount = typeof ingredient.amount === 'string'
                     ? (parseFloat(ingredient.amount) || null)
                     : ingredient.amount
@@ -1119,14 +1142,29 @@ function RecipeDetailModal({
 
                   return (
                     <div key={index} className="flex items-center justify-between py-3 md:py-2 border-b border-border last:border-0">
-                      <span className="text-base md:text-sm text-gray-700 font-semibold md:font-medium pr-4">{ingredient.name}</span>
+                      <div className="min-w-0 pr-4">
+                        <span className="text-base md:text-sm text-gray-700 font-semibold md:font-medium">{ingredient.name}</span>
+                        {cleanNote ? (
+                          <p className="text-xs text-emerald-700 mt-0.5">{cleanNote}</p>
+                        ) : null}
+                      </div>
                       <span className="text-base md:text-sm text-muted-foreground font-bold md:font-semibold text-right flex-shrink-0">
-                        {amount !== null && amount !== undefined ? `${amount} ${ingredient.unit || 'g'}` : cleanNote || ''}
+                        {amount !== null && amount !== undefined ? `${amount} ${ingredient.unit || 'g'}` : ''}
                       </span>
                     </div>
                   )
                 })}
               </div>
+              {onChangeIngredient && (
+                <button
+                  type="button"
+                  onClick={onChangeIngredient}
+                  className="mt-3 w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-50 px-3 py-2.5 text-sm font-bold text-emerald-700 hover:bg-emerald-100"
+                >
+                  <Shuffle className="h-4 w-4" />
+                  Cambiar un ingrediente
+                </button>
+              )}
             </div>
 
             {/* Instrucciones */}
@@ -1382,21 +1420,9 @@ function AllRecipesModal({
     if (!substitution) return
 
     const note = `${substitution.original_food_name} por ${substitution.replacement_quantity}${substitution.replacement_unit} de ${substitution.replacement_food_name}`
-    const option: MealOption = {
-      id: `recipe-${substitutionRecipe.id}`,
-      name: substitutionRecipe.name,
-      calories: substitutionRecipe.calories || 0,
-      protein: Number(substitutionRecipe.protein) || 0,
-      carbs: Number(substitutionRecipe.carbs) || 0,
-      fat: Number(substitutionRecipe.fat) || 0,
-      imageUrl: substitutionRecipe.image_url || '',
-      category: 'balanced',
-      icon: '🍽️',
-      description: `${substitutionRecipe.description || 'Receta seleccionada'} · Cambio: ${note}`,
-      cookTime: substitutionRecipe.prep_time_minutes ? `${substitutionRecipe.prep_time_minutes} min` : undefined,
-      recipeId: substitutionRecipe.id,
-      customDescription: `${substitutionRecipe.name} (${note})`,
-      substitution_details: [substitution],
+    const option = buildMealOptionFromSubstitution(substitutionRecipe, substitution)
+    if (!option.customDescription) {
+      option.customDescription = `${substitutionRecipe.name} (${note})`
     }
 
     onSelectOption(option)
