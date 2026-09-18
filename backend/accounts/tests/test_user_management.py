@@ -74,6 +74,62 @@ class TestProfileEndpoints:
         assert member_user.allergies == ["nuts", "dairy"]
         assert member_user.medical_conditions == ["asma"]
 
+    def test_profile_patch_unwraps_nested_preference_repr(self, api_client, member_user):
+        api_client.force_authenticate(user=member_user)
+        url = reverse("profile")
+
+        response = api_client.patch(
+            url,
+            {"dietary_restrictions": "['Vegano', 'Intolerancia a la lactosa', 'celíaco']"},
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        member_user.refresh_from_db()
+        assert member_user.dietary_restrictions == [
+            "Vegano",
+            "Intolerancia a la lactosa",
+            "celíaco",
+        ]
+        assert response.data["dietary_restrictions"] == [
+            "Vegano",
+            "Intolerancia a la lactosa",
+            "celíaco",
+        ]
+
+    def test_profile_get_unwraps_stored_preference_fragments(self, api_client, member_user):
+        member_user.dietary_restrictions = ["['Vegano'", "'Intolerancia a la lactosa'", "'celíaco']"]
+        member_user.save(update_fields=["dietary_restrictions"])
+        api_client.force_authenticate(user=member_user)
+
+        response = api_client.get(reverse("profile"))
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["dietary_restrictions"] == [
+            "Vegano",
+            "Intolerancia a la lactosa",
+            "celíaco",
+        ]
+
+    def test_profile_patch_round_trip_does_not_reencode_preferences(self, api_client, member_user):
+        api_client.force_authenticate(user=member_user)
+        url = reverse("profile")
+        first = api_client.patch(
+            url,
+            {"dietary_restrictions": ["Vegano", "Intolerancia a la lactosa", "Celíaco"]},
+            format="json",
+        )
+        assert first.status_code == status.HTTP_200_OK
+
+        second = api_client.patch(
+            url,
+            {"dietary_restrictions": first.data["dietary_restrictions"]},
+            format="json",
+        )
+        assert second.status_code == status.HTTP_200_OK
+        member_user.refresh_from_db()
+        assert member_user.dietary_restrictions == ["Vegano", "Intolerancia a la lactosa", "Celíaco"]
+
     def test_profile_patch_notifies_admins_on_relevant_changes(self, api_client, member_user, admin_user):
         api_client.force_authenticate(user=member_user)
         url = reverse("profile")

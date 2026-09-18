@@ -19,28 +19,13 @@ class TimeStampedModel(models.Model):
 
 
 def _normalize_profile_terms(value):
-    if not value:
-        return []
-
-    if isinstance(value, str):
-        raw_items = value.replace(';', ',').replace('\n', ',').split(',')
-    elif isinstance(value, (list, tuple, set)):
-        raw_items = []
-        for item in value:
-            if item is None:
-                continue
-            if isinstance(item, str):
-                raw_items.extend(item.replace(';', ',').replace('\n', ',').split(','))
-            else:
-                raw_items.append(str(item))
-    else:
-        raw_items = [str(value)]
+    from accounts.preference_lists import unwrap_string_list
 
     normalized = []
     seen = set()
-    for item in raw_items:
+    for item in unwrap_string_list(value):
         text = unicodedata.normalize('NFKD', str(item)).encode('ascii', 'ignore').decode('ascii')
-        text = text.lower().replace('-', ' ')
+        text = text.lower().replace('-', ' ').replace('_', ' ')
         text = ' '.join(text.split())
         if text and text not in seen:
             seen.add(text)
@@ -55,6 +40,7 @@ _DIETARY_RESTRICTION_ALIASES = {
     'dairy_free': {
         'dairy free', 'lactose free', 'sin lactosa', 'lactosa', 'lactose',
         'sin lacteos', 'lacteos', 'dairy', 'leche',
+        'intolerancia a la lactosa', 'intolerancia lactosa',
     },
     'egg_free': {'egg free', 'sin huevo', 'huevo'},
     'nut_free': {'nut free', 'sin frutos secos', 'frutos secos', 'nuts'},

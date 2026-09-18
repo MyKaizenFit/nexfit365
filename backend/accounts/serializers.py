@@ -11,6 +11,7 @@ from nutrition.models import MealRecipeExclusion, MealIngredientExclusion
 from progress.models import WeightEntry
 
 from .models import CustomUser, ProfileAuditLog
+from .preference_lists import unwrap_string_list
 
 
 IMPORTANT_NOTIFICATION_TYPES = {"progress", "nutrition", "workout", "system"}
@@ -23,29 +24,12 @@ class FlexibleStringListField(serializers.Field):
     def to_internal_value(self, data):
         if data in (None, ""):
             return []
-
-        if isinstance(data, str):
-            values = data.split(",")
-        elif isinstance(data, (list, tuple)):
-            values = data
-        else:
+        if not isinstance(data, (str, list, tuple)):
             raise serializers.ValidationError("Debe ser una lista o texto separado por comas")
-
-        normalized = []
-        for value in values:
-            text = str(value).strip()
-            if text:
-                normalized.append(text)
-        return normalized
+        return unwrap_string_list(data)
 
     def to_representation(self, value):
-        if value in (None, ""):
-            return []
-        if isinstance(value, str):
-            return [item.strip() for item in value.split(",") if item.strip()]
-        if isinstance(value, (list, tuple)):
-            return [str(item).strip() for item in value if str(item).strip()]
-        return []
+        return unwrap_string_list(value)
 
 
 def _normalize_training_days(training_days) -> list[int]:
@@ -96,6 +80,9 @@ class UserProfileSerializer(serializers.ModelSerializer):
     has_active_membership = serializers.BooleanField(read_only=True)
     profile_picture = SignedProfilePictureField(read_only=True)
     profile_picture_url = serializers.SerializerMethodField()
+    dietary_restrictions = FlexibleStringListField(required=False)
+    allergies = FlexibleStringListField(required=False)
+    medical_conditions = FlexibleStringListField(required=False)
     
     class Meta:
         model = CustomUser
@@ -147,6 +134,9 @@ class AdminUserSerializer(serializers.ModelSerializer):
     premium_alerts = serializers.SerializerMethodField()
     excluded_recipes = serializers.SerializerMethodField()
     excluded_ingredients = serializers.SerializerMethodField()
+    dietary_restrictions = FlexibleStringListField(required=False)
+    allergies = FlexibleStringListField(required=False)
+    medical_conditions = FlexibleStringListField(required=False)
     recent_change_sections = serializers.SerializerMethodField()
     calculated_daily_calories = serializers.SerializerMethodField()
     membership_days_remaining = serializers.IntegerField(read_only=True, allow_null=True)

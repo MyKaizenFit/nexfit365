@@ -23,28 +23,13 @@ logger = logging.getLogger(__name__)
 
 
 def _normalize_preference_terms(value) -> List[str]:
-    if not value:
-        return []
-
-    if isinstance(value, str):
-        raw_items = [item.strip() for item in value.replace(';', ',').replace('\n', ',').split(',')]
-    elif isinstance(value, list):
-        raw_items = []
-        for item in value:
-            if isinstance(item, str):
-                raw_items.extend(part.strip() for part in item.replace(';', ',').replace('\n', ',').split(','))
-            elif item is not None:
-                raw_items.append(str(item).strip())
-    else:
-        raw_items = [str(value).strip()]
+    from accounts.preference_lists import unwrap_string_list
 
     normalized = []
     seen = set()
-    for item in raw_items:
-        if not item:
-            continue
+    for item in unwrap_string_list(value):
         normalized_item = unicodedata.normalize('NFKD', item).encode('ascii', 'ignore').decode('ascii').lower().strip()
-        normalized_item = normalized_item.replace('-', ' ')
+        normalized_item = normalized_item.replace('-', ' ').replace('_', ' ')
         normalized_item = ' '.join(normalized_item.split())
         if normalized_item and normalized_item not in seen:
             seen.add(normalized_item)
@@ -89,20 +74,16 @@ def _recipe_supports_user_restrictions(recipe: Recipe, restrictions: List[str]) 
     if not recipe_diet_types:
         return True
 
-    restriction_aliases = {
-        'vegetarian': {'vegetarian', 'vegetariano'},
-        'vegan': {'vegan', 'vegano'},
-        'gluten free': {'gluten free', 'gluten-free', 'sin gluten'},
-        'dairy free': {'dairy free', 'dairy-free', 'sin lactosa', 'lactose free', 'lactosa', 'lactose', 'sin lacteos', 'lacteos', 'leche'},
-        'keto': {'keto', 'ketogenic', 'cetogenica', 'cetogenico'},
-        'low carb': {'low carb', 'bajo en carbohidratos'},
-    }
+    from dashboard.models import _DIETARY_RESTRICTION_ALIASES, canonical_dietary_restrictions
 
-    for restriction in restrictions:
-        aliases = restriction_aliases.get(restriction)
+    recipe_keys = set(canonical_dietary_restrictions(getattr(recipe, 'diet_types', [])))
+    if 'vegan' in recipe_keys:
+        recipe_keys.update({'vegetarian', 'dairy_free', 'egg_free'})
+    for key in canonical_dietary_restrictions(restrictions):
+        aliases = _DIETARY_RESTRICTION_ALIASES.get(key)
         if not aliases:
-            aliases = next((values for values in restriction_aliases.values() if restriction in values), None)
-        if not aliases:
+            continue
+        if key in recipe_keys:
             continue
         if recipe_diet_types.isdisjoint(aliases):
             return False

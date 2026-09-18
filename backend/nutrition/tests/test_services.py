@@ -6,7 +6,7 @@ from django.test import TestCase
 from model_bakery import baker
 
 from nutrition.models import Food, NutritionPlan, NutritionPlanHistory, PlanMeal, PlanMealRecipe, Recipe, RecipeIngredient
-from nutrition.services import PersonalizedNutritionService
+from nutrition.services import PersonalizedNutritionService, recipe_is_compatible_for_user
 
 User = get_user_model()
 
@@ -385,3 +385,108 @@ class PersonalizedNutritionServiceTest(TestCase):
         assigned_recipe_ids = list(assigned_breakfast.meal_recipes.values_list("recipe_id", flat=True))
         self.assertIn(safe_recipe.id, assigned_recipe_ids)
         self.assertNotIn(blocked_recipe.id, assigned_recipe_ids)
+
+    def test_spanish_dietary_labels_are_hard_restrictions(self):
+        vegan_recipe = baker.make(
+            "nutrition.Recipe",
+            name="Bowl vegano",
+            is_active=True,
+            diet_types=["vegano"],
+            allergens=[],
+            ingredients=[{"name": "Garbanzos", "amount": "100", "unit": "g"}],
+        )
+        meat_recipe = baker.make(
+            "nutrition.Recipe",
+            name="Bowl de pollo",
+            is_active=True,
+            diet_types=["omnivoro"],
+            allergens=[],
+            ingredients=[{"name": "Pollo", "amount": "120", "unit": "g"}],
+        )
+        gluten_free_recipe = baker.make(
+            "nutrition.Recipe",
+            name="Quinoa",
+            is_active=True,
+            diet_types=["sin gluten"],
+            allergens=[],
+            ingredients=[{"name": "Quinoa", "amount": "80", "unit": "g"}],
+        )
+        gluten_tagged_recipe = baker.make(
+            "nutrition.Recipe",
+            name="Pasta",
+            is_active=True,
+            diet_types=["omnivoro"],
+            allergens=["gluten"],
+            ingredients=[{"name": "Harina de trigo", "amount": "80", "unit": "g"}],
+        )
+        dairy_free_recipe = baker.make(
+            "nutrition.Recipe",
+            name="Batido vegetal",
+            is_active=True,
+            diet_types=["sin lactosa"],
+            allergens=[],
+            ingredients=[{"name": "Bebida de avena", "amount": "250", "unit": "ml"}],
+        )
+        dairy_tagged_recipe = baker.make(
+            "nutrition.Recipe",
+            name="Yogur",
+            is_active=True,
+            diet_types=["vegetariano"],
+            allergens=["lactosa"],
+            ingredients=[{"name": "Yogur", "amount": "150", "unit": "g"}],
+        )
+        untagged = baker.make(
+            "nutrition.Recipe",
+            name="Receta sin etiquetar",
+            is_active=True,
+            diet_types=[],
+            allergens=[],
+            ingredients=[],
+        )
+
+        self.user.allergies = []
+        self.user.dietary_restrictions = ["Vegano"]
+        self.user.save(update_fields=["dietary_restrictions", "allergies"])
+        self.assertTrue(recipe_is_compatible_for_user(vegan_recipe, self.user))
+        self.assertFalse(recipe_is_compatible_for_user(meat_recipe, self.user))
+        self.assertTrue(recipe_is_compatible_for_user(untagged, self.user))
+
+        self.user.dietary_restrictions = ["celíaco"]
+        self.user.save(update_fields=["dietary_restrictions"])
+        self.assertTrue(recipe_is_compatible_for_user(gluten_free_recipe, self.user))
+        self.assertFalse(recipe_is_compatible_for_user(gluten_tagged_recipe, self.user))
+        self.assertTrue(recipe_is_compatible_for_user(untagged, self.user))
+
+        self.user.dietary_restrictions = ["Intolerancia a la lactosa"]
+        self.user.save(update_fields=["dietary_restrictions"])
+        self.assertTrue(recipe_is_compatible_for_user(dairy_free_recipe, self.user))
+        self.assertFalse(recipe_is_compatible_for_user(dairy_tagged_recipe, self.user))
+        self.assertTrue(recipe_is_compatible_for_user(vegan_recipe, self.user))
+        self.assertTrue(recipe_is_compatible_for_user(untagged, self.user))
+
+        self.user.dietary_restrictions = ["Vegano", "Intolerancia a la lactosa", "celíaco"]
+        self.user.save(update_fields=["dietary_restrictions"])
+        tagged_safe = baker.make(
+            "nutrition.Recipe",
+            name="Bowl vegano sin gluten",
+            is_active=True,
+            diet_types=["vegano", "sin gluten"],
+            allergens=[],
+            ingredients=[{"name": "Garbanzos", "amount": "100", "unit": "g"}],
+        )
+        self.assertTrue(recipe_is_compatible_for_user(tagged_safe, self.user))
+        self.assertFalse(recipe_is_compatible_for_user(meat_recipe, self.user))
+
+    def test_mangled_allergies_still_block_matching_recipes(self):
+        blocked_recipe = baker.make(
+            "nutrition.Recipe",
+            name="Tostada con cacahuete",
+            is_active=True,
+            allergens=["peanuts"],
+            ingredients=[{"name": "Mantequilla de cacahuete", "amount": "20", "unit": "g"}],
+        )
+        self.user.allergies = ["['peanuts'", "'nueces']"]
+        self.user.dietary_restrictions = []
+        self.user.save(update_fields=["allergies", "dietary_restrictions"])
+
+        self.assertFalse(recipe_is_compatible_for_user(blocked_recipe, self.user))

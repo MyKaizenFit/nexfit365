@@ -17,6 +17,7 @@ import { toast } from "@/hooks/use-toast"
 import { useUserProfile } from "@/hooks/use-user-profile"
 import { NutritionPreview } from "./nutrition-preview"
 import { calculateNutritionPlan, type CalculatedMacros } from "@/lib/nutrition-calculator"
+import { formatPreferenceValue, unwrapPreferenceList } from "@/lib/preference-list"
 import { nutritionService } from "@/lib/nutrition-service"
 import { getAuthHeaders, buildApiUrl } from "@/lib/api"
 
@@ -143,27 +144,8 @@ export const ProfilePanel = memo(function ProfilePanel() {
     return age
   }
 
-  const formatPreferenceValue = (value: string | string[] | null | undefined) => {
-    if (Array.isArray(value)) {
-      return value.join(', ')
-    }
-    return value || ''
-  }
-
-  const parsePreferenceList = (value: string | string[] | null | undefined) => {
-    if (Array.isArray(value)) {
-      return value.map((item) => item.trim()).filter(Boolean)
-    }
-
-    if (!value) {
-      return []
-    }
-
-    return value
-      .split(/[\n,;]+/)
-      .map((item) => item.trim())
-      .filter(Boolean)
-  }
+  const parsePreferenceList = (value: string | string[] | null | undefined) =>
+    unwrapPreferenceList(value)
 
   const handleLocalUpdate = (updates: any) => {
     setLocalProfile((prev: any) => {
