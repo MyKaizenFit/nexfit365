@@ -202,6 +202,27 @@ class TestScoring:
         assert '9' in ids
         assert any(a.is_current_selection for a in result.alternatives)
 
+    def test_changing_current_recipe_reranks_same_pool_without_dropping_options(self):
+        slot = SlotInfo('d', 'dinner', 1, calories=400)
+        alternatives = [
+            {'id': 'a', 'name': 'A', 'calories': 400, 'protein': 35, 'carbs': 40, 'fat': 12, 'recipeId': '1'},
+            {'id': 'b', 'name': 'B', 'calories': 900, 'protein': 10, 'carbs': 10, 'fat': 40, 'recipeId': '9'},
+        ]
+        kwargs = dict(
+            date='2026-08-04',
+            current_slot=slot,
+            day_slots=[slot],
+            logs=[],
+            daily_goals=NutrientVector(1500, 120, 150, 50),
+            alternatives=alternatives,
+        )
+        first = rank_alternatives(**kwargs, current_recipe_id='1')
+        second = rank_alternatives(**kwargs, current_recipe_id='9')
+        assert {a.option['recipeId'] for a in first.alternatives} == {'1', '9'}
+        assert {a.option['recipeId'] for a in second.alternatives} == {'1', '9'}
+        assert next(a for a in first.alternatives if a.option['recipeId'] == '1').is_current_selection
+        assert next(a for a in second.alternatives if a.option['recipeId'] == '9').is_current_selection
+
     def test_calories_dominate_but_macros_matter(self):
         budget = NutrientVector(calories=500, protein=40, carbs=50, fat=15)
         close_cals_bad_macros = NutrientVector(calories=500, protein=5, carbs=5, fat=5)
