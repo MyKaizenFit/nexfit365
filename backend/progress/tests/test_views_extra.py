@@ -253,6 +253,43 @@ class TestProgressStatsViewSet:
         assert response.data["success"] is True
         assert FeedbackMessage.objects.filter(user=user, subject="Revisión quincenal solicitada").exists()
 
+        status_after = auth_client.get(reverse("progress-stats-quinzenal-review"))
+        assert status_after.data["review_sent_recently"] is True
+        assert status_after.data["can_send"] is False
+
+
+@pytest.mark.django_db
+class TestQuinzenalReviewWindow:
+    def test_review_stays_recent_until_day_15(self, auth_client, user):
+        from freezegun import freeze_time
+
+        with freeze_time("2026-04-01 10:00:00+02:00"):
+            today = timezone.localdate()
+            ProgressPhoto.objects.create(
+                user=user,
+                photo=make_test_image("window.png"),
+                photo_type="front",
+                date=today,
+                weight=Decimal("70.0"),
+            )
+            BodyMeasurement.objects.create(user=user, date=today, waist=Decimal("70.0"))
+            submit = auth_client.post(
+                reverse("progress-stats-submit-quinzenal-review"),
+                {"notes": "ok"},
+                format="json",
+            )
+            assert submit.status_code == status.HTTP_201_CREATED
+            recent = auth_client.get(reverse("progress-stats-quinzenal-review"))
+            assert recent.data["review_sent_recently"] is True
+
+        with freeze_time("2026-04-15 10:00:00+02:00"):
+            still_recent = auth_client.get(reverse("progress-stats-quinzenal-review"))
+            assert still_recent.data["review_sent_recently"] is True
+
+        with freeze_time("2026-04-16 10:00:00+02:00"):
+            opened = auth_client.get(reverse("progress-stats-quinzenal-review"))
+            assert opened.data["review_sent_recently"] is False
+
 
 @pytest.mark.django_db
 class TestDailyWellnessExtra:

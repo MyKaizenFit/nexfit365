@@ -170,8 +170,8 @@ export const ProfilePanel = memo(function ProfilePanel() {
         if (localProfile.first_name !== undefined) editableFields.first_name = localProfile.first_name
         if (localProfile.last_name !== undefined) editableFields.last_name = localProfile.last_name
         // phone puede venir como phone o phone_number del backend
-        const phoneValue = localProfile.phone_number || localProfile.phone
-        if (phoneValue !== undefined) editableFields.phone_number = phoneValue
+        const phoneValue = localProfile.phone_number ?? localProfile.phone
+        if (phoneValue !== undefined) editableFields.phone_number = phoneValue || null
         // birth_date puede venir como birth_date o date_of_birth
         const birthDateValue = localProfile.birth_date || localProfile.date_of_birth
         if (birthDateValue !== undefined) editableFields.birth_date = birthDateValue
@@ -199,6 +199,15 @@ export const ProfilePanel = memo(function ProfilePanel() {
         if (localProfile.injuries_or_medical_issues !== undefined) editableFields.injuries_or_medical_issues = localProfile.injuries_or_medical_issues
         if (localProfile.disliked_foods !== undefined) editableFields.disliked_foods = formatPreferenceValue(localProfile.disliked_foods)
         
+        const nullable = new Set([
+          "gender", "activity_level", "main_goal", "training_location", "birth_date", "phone_number",
+        ])
+        for (const [key, value] of Object.entries(editableFields)) {
+          if (value === "" && nullable.has(key)) {
+            editableFields[key] = null
+          }
+        }
+
         const response = await updateProfile(editableFields)
         
         // Verificar si el plan fue actualizado automáticamente
@@ -219,8 +228,11 @@ export const ProfilePanel = memo(function ProfilePanel() {
         }
         
         setIsEditing(false)
-        // Refrescar el perfil para obtener los datos actualizados
-        await refreshProfile()
+        try {
+          await refreshProfile()
+        } catch {
+          // El PATCH ya persistió; no convertir un GET fallido en error global.
+        }
         
         // Si se actualizó el peso, refrescar también el historial de peso y estadísticas
         if (editableFields.weight !== undefined) {
@@ -237,9 +249,10 @@ export const ProfilePanel = memo(function ProfilePanel() {
         }
       }
     } catch (error) {
+      const message = error instanceof Error ? error.message : "No se pudo actualizar el perfil. Inténtalo de nuevo."
       toast({
-        title: "❌ Error",
-        description: "No se pudo actualizar el perfil. Inténtalo de nuevo.",
+        title: "❌ No se guardó el perfil",
+        description: message,
         variant: "destructive",
       })
     }
@@ -313,12 +326,11 @@ export const ProfilePanel = memo(function ProfilePanel() {
     : 0
 
   // Mostrar loading mientras se cargan los datos
-  if (loading) {
+  if (loading && !profile) {
     return <ProfileSectionSkeleton />
   }
 
-  // Mostrar error si no se pudo cargar el perfil
-  if (error || !profile) {
+  if (!profile) {
     return (
       <div className="space-y-6">
         <Card>
@@ -509,18 +521,6 @@ export const ProfilePanel = memo(function ProfilePanel() {
                 </SelectContent>
               </Select>
             </div>
-          </div>
-
-          <div>
-            <Label htmlFor="bio">Biografía</Label>
-            <Textarea
-              id="bio"
-              value={localProfile?.bio ?? profile.bio ?? ''}
-              onChange={(e) => handleLocalUpdate({ bio: e.target.value })}
-              disabled={!isEditing}
-              className="mt-1"
-              rows={3}
-            />
           </div>
         </CardContent>
       </Card>

@@ -492,8 +492,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }))
       }
     } catch (error) {
-      // Si hay error, hacer logout
-      await logout()
+      const message = error instanceof Error ? error.message : ''
+      if (/401|sesión expirada|no hay token/i.test(message)) {
+        await logout()
+      }
     }
   }
 

@@ -218,10 +218,31 @@ class ProgressService {
     }
   }
 
+  async findWeightEntryByDate(date: string): Promise<WeightEntry | null> {
+    try {
+      const headers = await getAuthHeaders()
+      const response = await authenticatedFetch(
+        `weight-history/?date=${encodeURIComponent(date)}`,
+        { headers, method: 'GET' }
+      )
+      if (!response.ok) return null
+      const data = await response.json()
+      const rows = Array.isArray(data) ? data : (data.results || [])
+      return rows[0] || null
+    } catch {
+      return null
+    }
+  }
+
   /**
    * Agregar entrada de peso
    */
   async addWeightEntry(weight: number, date: string, notes?: string): Promise<WeightEntry> {
+    const existing = await this.findWeightEntryByDate(date)
+    if (existing) {
+      return this.updateWeightEntry(existing.id, weight, date, notes)
+    }
+
     try {
       const headers = await getAuthHeaders()
       const response = await authenticatedFetch(
@@ -239,7 +260,10 @@ class ProgressService {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.detail || `Error agregando entrada de peso: ${response.status}`)
+        const { formatApiError } = await import('./api-errors')
+        throw new Error(
+          formatApiError(errorData, '') || `Error agregando entrada de peso: ${response.status}`
+        )
       }
 
       const data = await response.json()
@@ -270,7 +294,10 @@ class ProgressService {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.detail || `Error actualizando entrada de peso: ${response.status}`)
+        const { formatApiError } = await import('./api-errors')
+        throw new Error(
+          formatApiError(errorData, '') || `Error actualizando entrada de peso: ${response.status}`
+        )
       }
 
       const data = await response.json()

@@ -10,6 +10,12 @@ describe("formatApiError", () => {
   it("extracts nested field errors", () => {
     expect(formatApiError({ time: [INVALID_TIME_MESSAGE] })).toBe(`Hora: ${INVALID_TIME_MESSAGE}`)
   })
+
+  it("surfaces a duplicate date error from weight/measurements", () => {
+    expect(formatApiError({
+      date: ["Ya existe una entrada de peso para esta fecha."],
+    })).toBe("date: Ya existe una entrada de peso para esta fecha.")
+  })
 })
 
 describe("formatHttpError", () => {

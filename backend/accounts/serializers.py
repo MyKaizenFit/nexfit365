@@ -445,7 +445,8 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):
             'training_location', 'dietary_restrictions', 'allergies',
             'medical_conditions', 'workout_preferences', 'equipment_available',
             'notification_preferences', 'profile_picture', 'disliked_foods',
-            'injuries_or_medical_issues', 'additional_info_for_admin'
+            'injuries_or_medical_issues', 'additional_info_for_admin',
+            'phone_number',
         ]
 
 class UserRegistrationSerializer(serializers.ModelSerializer):

@@ -56,6 +56,34 @@ class TestProfileEndpoints:
         assert member_user.first_name == "Nuevo"
         assert member_user.last_name == "Nombre"
 
+    def test_profile_patch_saves_phone_number_roundtrip(self, api_client, member_user):
+        api_client.force_authenticate(user=member_user)
+        url = reverse("profile")
+
+        response = api_client.patch(url, {"phone_number": "+34600111222"}, format="json")
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["phone_number"] == "+34600111222"
+
+        member_user.refresh_from_db()
+        assert member_user.phone_number == "+34600111222"
+
+        fetched = api_client.get(url)
+        assert fetched.status_code == status.HTTP_200_OK
+        assert fetched.data["phone_number"] == "+34600111222"
+
+    def test_profile_patch_ignores_unknown_bio_field(self, api_client, member_user):
+        api_client.force_authenticate(user=member_user)
+        url = reverse("profile")
+        response = api_client.patch(
+            url,
+            {"first_name": "Ana", "bio": "Esto no existe en el modelo"},
+            format="json",
+        )
+        assert response.status_code == status.HTTP_200_OK
+        member_user.refresh_from_db()
+        assert member_user.first_name == "Ana"
+        assert not hasattr(member_user, "bio")
+
     def test_profile_patch_accepts_sensitive_list_fields(self, api_client, member_user):
         api_client.force_authenticate(user=member_user)
         url = reverse("profile")

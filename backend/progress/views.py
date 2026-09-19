@@ -283,7 +283,13 @@ class ProgressStatsViewSet(viewsets.ViewSet):
             subject__startswith="Revisión quincenal",
         ).order_by("-created_at").first()
 
-        last_review_sent_at = last_review_request.created_at.date() if last_review_request else None
+        if last_review_request:
+            sent_at = last_review_request.created_at
+            if timezone.is_aware(sent_at):
+                sent_at = timezone.localtime(sent_at)
+            last_review_sent_at = sent_at.date()
+        else:
+            last_review_sent_at = None
         next_review_date = (last_review_sent_at + timedelta(days=15)) if last_review_sent_at else today
         days_until_review = max(0, (next_review_date - today).days)
         review_sent_recently = bool(last_review_sent_at and (today - last_review_sent_at).days < 15)

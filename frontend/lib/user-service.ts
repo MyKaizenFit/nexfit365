@@ -614,6 +614,8 @@ export class UserService {
       // Limpiar caché del perfil para forzar actualización
       const profileCacheKey = generateCacheKey('profile/')
       apiCache.delete(profileCacheKey)
+      apiCache.delete(generateCacheKey('/me/'))
+      apiCache.delete(generateCacheKey('me/'))
       
       // También limpiar caché de auth-me para que getCurrentUser obtenga datos frescos
       const authCacheKey = generateCacheKey(AUTH_ENDPOINTS.ME)

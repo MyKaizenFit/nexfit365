@@ -18,6 +18,7 @@ import { es } from "date-fns/locale"
 import { WeightDialog } from "@/components/dashboard/weight-dialog"
 import { WeightHistory } from "@/components/dashboard/weight-history"
 import { useWeightHistory } from "@/hooks/use-weight-history"
+import { todayLocalDate } from "@/lib/local-date"
 
 interface BodyMeasurement {
   id: number
@@ -54,7 +55,7 @@ const FIELDS: MeasurementField[] = [
 type FormState = Partial<Record<keyof BodyMeasurement, string>>
 
 const emptyForm = (): FormState => ({
-  date: format(new Date(), "yyyy-MM-dd"),
+  date: todayLocalDate(),
   chest: "", waist: "", hips: "", arms: "",
   thighs: "", neck: "", forearms: "", calves: "", notes: "",
 })
@@ -100,6 +101,17 @@ export function BodyMeasurements() {
     }
   }, [availableFields, selectedField])
 
+  const formFromMeasurement = (item: BodyMeasurement): FormState => {
+    const next = emptyForm()
+    next.date = item.date
+    next.notes = item.notes || ""
+    FIELDS.forEach((field) => {
+      const value = item[field.key]
+      next[field.key] = value == null ? "" : String(value)
+    })
+    return next
+  }
+
   const handleSave = async () => {
     // Validar que al menos un campo de medida tenga valor
     const hasMeasure = FIELDS.some(f => form[f.key] && String(form[f.key]).trim() !== "")
@@ -113,23 +125,33 @@ export function BodyMeasurements() {
       const payload: Record<string, any> = { date: form.date, notes: form.notes || "" }
       FIELDS.forEach(f => {
         const v = form[f.key]
-        payload[f.key] = v && String(v).trim() !== "" ? parseFloat(String(v)) : null
+        const raw = v == null ? "" : String(v).trim().replace(",", ".")
+        payload[f.key] = raw !== "" ? parseFloat(raw) : null
       })
 
-      const res = await authenticatedFetch("measurements/", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      })
+      const existing = measurements.find((item) => item.date === form.date)
+      const res = await authenticatedFetch(
+        existing ? `measurements/${existing.id}/` : "measurements/",
+        {
+          method: existing ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      )
 
       if (res.ok) {
-        toast({ title: "✅ Medidas guardadas", description: "Tus medidas han sido registradas." })
+        toast({
+          title: existing ? "✅ Medidas actualizadas" : "✅ Medidas guardadas",
+          description: existing
+            ? "Se actualizó el registro de este día."
+            : "Tus medidas han sido registradas.",
+        })
         setForm(emptyForm())
         setShowForm(false)
         load()
       } else {
         const err = await res.json().catch(() => ({}))
-        const msg = err.date?.[0] || err.non_field_errors?.[0] || "Error al guardar."
+        const msg = err.date?.[0] || err.non_field_errors?.[0] || err.detail || "Error al guardar."
         throw new Error(msg)
       }
     } catch (e: any) {
@@ -225,7 +247,12 @@ export function BodyMeasurements() {
             </CardTitle>
             <CardDescription className="text-sm">Registra tus contornos junto al seguimiento de peso</CardDescription>
           </div>
-          <Button size="sm" onClick={() => setShowForm(true)}>
+          <Button size="sm" onClick={() => {
+            const today = todayLocalDate()
+            const existing = measurements.find((item) => item.date === today)
+            setForm(existing ? formFromMeasurement(existing) : emptyForm())
+            setShowForm(true)
+          }}>
             <Plus className="h-4 w-4 mr-1" />
             Registrar
           </Button>
@@ -249,7 +276,12 @@ export function BodyMeasurements() {
           <div className="text-center py-8">
             <Ruler className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
             <p className="text-sm text-muted-foreground mb-3">Aún no tienes medidas registradas</p>
-            <Button variant="outline" size="sm" onClick={() => setShowForm(true)}>
+            <Button variant="outline" size="sm" onClick={() => {
+              const today = todayLocalDate()
+              const existing = measurements.find((item) => item.date === today)
+              setForm(existing ? formFromMeasurement(existing) : emptyForm())
+              setShowForm(true)
+            }}>
               <Plus className="h-4 w-4 mr-1" />
               Primera medida
             </Button>
@@ -408,7 +440,11 @@ export function BodyMeasurements() {
       <Dialog open={showForm} onOpenChange={setShowForm}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Registrar Medidas Corporales</DialogTitle>
+            <DialogTitle>
+              {measurements.some((item) => item.date === form.date)
+                ? "Actualizar medidas de este día"
+                : "Registrar Medidas Corporales"}
+            </DialogTitle>
             <DialogDescription>
               Introduce tus medidas en centímetros. Deja en blanco los campos que no quieras registrar.
             </DialogDescription>
@@ -421,8 +457,12 @@ export function BodyMeasurements() {
                 id="meas-date"
                 type="date"
                 value={form.date as string}
-                max={format(new Date(), "yyyy-MM-dd")}
-                onChange={e => setForm(p => ({ ...p, date: e.target.value }))}
+                max={todayLocalDate()}
+                onChange={e => {
+                  const date = e.target.value
+                  const existing = measurements.find((item) => item.date === date)
+                  setForm(existing ? formFromMeasurement(existing) : { ...emptyForm(), date })
+                }}
               />
             </div>
 

@@ -238,14 +238,10 @@ export const handleApiResponse = async <T>(response: Response): Promise<{ data: 
 
       try {
         const errorData = await parseJsonWithUTF8<any>(response)
-        if (errorData.detail) {
-          errorMessage = errorData.detail
-        } else if (errorData.message) {
-          errorMessage = errorData.message
-        } else if (errorData.error) {
-          errorMessage = errorData.error
-        } else if (typeof errorData === 'string') {
-          errorMessage = errorData
+        const { formatApiError } = await import('./api-errors')
+        const fieldError = formatApiError(errorData, '')
+        if (fieldError) {
+          errorMessage = fieldError
         }
       } catch (parseError) {
         // Si no se puede parsear el error, usar el mensaje por defecto
