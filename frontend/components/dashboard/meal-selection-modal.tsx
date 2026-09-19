@@ -628,7 +628,7 @@ export function MealSelectionModal({
                     ) : (
                       <>
                         <BookOpen className="w-4 h-4 md:w-3 md:h-3" />
-                        <span>Receta equivalencia</span>
+                        <span>Cambiar receta</span>
                       </>
                     )}
                   </button>
@@ -760,7 +760,7 @@ export function MealSelectionModal({
                           ) : (
                             <Shuffle className="h-3.5 w-3.5" />
                           )}
-                          <span>Ver equivalencias</span>
+                          <span>Cambiar ingrediente</span>
                         </button>
                         {isCurrentSelection && onDeselectOption && (
                           <button
@@ -1640,7 +1640,7 @@ function AllRecipesModal({
                         className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-black text-emerald-700 transition-all hover:bg-emerald-100 active:scale-[0.98]"
                       >
                         <Shuffle className="h-4 w-4" />
-                        Ver equivalencias
+                        Cambiar ingrediente
                       </button>
                     </div>
                   </div>

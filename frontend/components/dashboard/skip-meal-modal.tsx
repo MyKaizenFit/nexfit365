@@ -48,7 +48,7 @@ export function SkipMealModal({ mealName, onConfirm, onCancel }: SkipMealModalPr
           <div className="flex items-center gap-2">
             <span className="text-xl">⏭️</span>
             <div>
-              <h2 className="font-semibold text-foreground text-base">No como esta comida</h2>
+              <h2 className="font-semibold text-foreground text-base">Omitir esta comida hoy</h2>
               <p className="text-xs text-muted-foreground truncate max-w-[200px]">{mealName}</p>
             </div>
           </div>

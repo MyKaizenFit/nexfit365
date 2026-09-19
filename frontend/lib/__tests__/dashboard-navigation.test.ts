@@ -17,6 +17,7 @@ describe('dashboard navigation helpers', () => {
     expect(dashboardSectionHref('')).toBe('/dashboard')
     expect(dashboardSectionHref('meals')).toBe('/dashboard?section=meals')
     expect(dashboardSectionHref('workouts 3')).toBe('/dashboard?section=workouts%203')
+    expect(dashboardSectionHref('dashboard')).not.toContain('/auth')
   })
 
   it('navigates with scroll disabled', () => {
@@ -98,5 +99,14 @@ describe('dashboard navigation helpers', () => {
     const dashboardPage = fs.readFileSync(path.join(process.cwd(), 'app/dashboard/page.tsx'), 'utf8')
     expect(dashboardPage).toContain("¡Hola, {user?.first_name || 'Usuario'}!")
     expect(dashboardPage).not.toContain("¡Hola, {user?.first_name || 'Usuario'}! 👋")
+  })
+
+  it('uses the authenticated logo as a control back to Inicio', () => {
+    const dashboardPage = fs.readFileSync(path.join(process.cwd(), 'app/dashboard/page.tsx'), 'utf8')
+    const mobileHeader = fs.readFileSync(path.join(process.cwd(), 'app/dashboard/components/mobile-header.tsx'), 'utf8')
+    expect(dashboardPage).toContain('aria-label="Ir al inicio"')
+    expect(dashboardPage).toContain('handleMenuClick("dashboard", "Inicio")')
+    expect(mobileHeader).toContain('navigateToDashboardSection(router, "dashboard")')
+    expect(mobileHeader).toContain('aria-label="Ir al inicio"')
   })
 })
