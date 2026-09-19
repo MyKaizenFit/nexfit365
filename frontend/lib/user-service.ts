@@ -5,6 +5,7 @@ import { buildApiUrl, getAuthHeaders, getMultipartAuthHeaders, handleApiResponse
 import { getAuthService } from './auth-service'
 import { requestThrottler } from './request-throttle'
 import { apiCache, generateCacheKey } from './api-cache'
+import { buildGetCoalesceKey, coalesceInFlight, coalesceUserScope } from './request-coalescer'
 import { assertPhotoWithinUploadLimit, normalizePhotoFile } from './image-upload'
 import type { ProgressPhotoType } from '@/lib/progress-photo-types'
 import { todayLocalDate } from './local-date'
@@ -154,47 +155,51 @@ export class UserService {
 
   // Obtener estadísticas del usuario
   async getUserStats(): Promise<UserStats | null> {
-    const cacheKey = generateCacheKey('/user-stats/')
-    
-    // Intentar obtener del caché primero
-    const cached = apiCache.get<UserStats>(cacheKey)
-    if (cached) {
-      return cached
-    }
-
     try {
       const authService = getAuthService()
       if (!authService.isAuthenticated()) {
-        // Retornar null en lugar de lanzar error si no está autenticado
         return null
       }
 
+      const userScope = coalesceUserScope(null, authService.getAccessToken())
+      const cacheKey = generateCacheKey(`/user-stats/${userScope}`)
+      const cached = apiCache.get<UserStats>(cacheKey)
+      if (cached) {
+        return cached
+      }
 
-      const result = await requestThrottler.throttle('user-stats', async () => {
-        const response = await fetch(buildApiUrl('/user-stats/'), {
-        credentials: 'include',
-          method: 'GET',
-          headers: {
-            ...getAuthHeaders(),
-          },
+      const coalesceKey = buildGetCoalesceKey(userScope, 'GET', '/user-stats/')
+
+      const result = await coalesceInFlight(coalesceKey, async () => {
+        const cachedWhileWaiting = apiCache.get<UserStats>(cacheKey)
+        if (cachedWhileWaiting) return cachedWhileWaiting
+
+        const fetched = await requestThrottler.throttle('user-stats', async () => {
+          const response = await fetch(buildApiUrl('/user-stats/'), {
+            credentials: 'include',
+            method: 'GET',
+            headers: {
+              ...getAuthHeaders(),
+            },
+          })
+
+          const apiResult = await handleApiResponse<UserStats>(response)
+
+          if (apiResult.error) {
+            throw new Error(apiResult.error)
+          }
+
+          if (!apiResult.data) {
+            throw new Error('No se recibieron estadísticas')
+          }
+
+          return apiResult.data
         })
 
-        const apiResult = await handleApiResponse<UserStats>(response)
-        
-        if (apiResult.error) {
-          throw new Error(apiResult.error)
-        }
-
-        if (!apiResult.data) {
-          throw new Error('No se recibieron estadísticas')
-        }
-
-        return apiResult.data
+        apiCache.set(cacheKey, fetched, 2 * 60 * 1000)
+        return fetched
       })
 
-      // Almacenar en caché por 2 minutos
-      apiCache.set(cacheKey, result, 2 * 60 * 1000)
-      
       return result
     } catch (error) {
       // Si es un error de autenticación, retornar null en lugar de lanzar

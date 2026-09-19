@@ -1,4 +1,6 @@
 import { buildApiUrl, getAuthHeaders } from '@/lib/api'
+import { getAuthService } from '@/lib/auth-service'
+import { buildGetCoalesceKey, coalesceInFlight, coalesceUserScope } from '@/lib/request-coalescer'
 
 export type NotificationPriority = 'low' | 'medium' | 'high' | 'urgent'
 
@@ -97,17 +99,24 @@ const resolveHeaders = (headers?: Record<string, string>) => headers || getAuthH
 
 export const notificationService = {
   async getNotifications(headers?: Record<string, string>): Promise<Notification[]> {
-    const response = await fetch(buildApiUrl('notifications/?ordering=-created_at'), {
-      headers: resolveHeaders(headers),
+    const coalesceKey = buildGetCoalesceKey(
+      coalesceUserScope(null, getAuthService().getAccessToken()),
+      'GET',
+      'notifications/?ordering=-created_at',
+    )
+    return coalesceInFlight(coalesceKey, async () => {
+      const response = await fetch(buildApiUrl('notifications/?ordering=-created_at'), {
+        headers: resolveHeaders(headers),
+      })
+
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      const items = Array.isArray(data) ? data : (data.results || [])
+      return items.map(mapApiNotification)
     })
-
-    if (!response.ok) {
-      throw new Error(`Error ${response.status}: ${response.statusText}`)
-    }
-
-    const data = await response.json()
-    const items = Array.isArray(data) ? data : (data.results || [])
-    return items.map(mapApiNotification)
   },
 
   async getUnreadCount(headers?: Record<string, string>): Promise<number> {
@@ -184,32 +193,39 @@ export const notificationService = {
   },
 
   async getSettings(): Promise<NotificationSettings> {
-    try {
-      const response = await fetch(buildApiUrl('me/'), {
-        method: 'GET',
-        credentials: 'include',
-        headers: getAuthHeaders(),
-      })
-      if (response.ok) {
-        const data = await response.json()
-        const merged = mergeSettings(data?.notification_preferences)
-        if (typeof window !== 'undefined') {
-          localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(merged))
+    const coalesceKey = buildGetCoalesceKey(
+      coalesceUserScope(null, getAuthService().getAccessToken()),
+      'GET',
+      'me/?scope=notification_preferences',
+    )
+    return coalesceInFlight(coalesceKey, async () => {
+      try {
+        const response = await fetch(buildApiUrl('me/'), {
+          method: 'GET',
+          credentials: 'include',
+          headers: getAuthHeaders(),
+        })
+        if (response.ok) {
+          const data = await response.json()
+          const merged = mergeSettings(data?.notification_preferences)
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(merged))
+          }
+          return merged
         }
-        return merged
+      } catch {
+        // fall through to local cache
       }
-    } catch {
-      // fall through to local cache
-    }
 
-    if (typeof window === 'undefined') return { ...DEFAULT_SETTINGS }
-    try {
-      const raw = localStorage.getItem(SETTINGS_STORAGE_KEY)
-      if (!raw) return { ...DEFAULT_SETTINGS }
-      return mergeSettings(JSON.parse(raw))
-    } catch {
-      return { ...DEFAULT_SETTINGS }
-    }
+      if (typeof window === 'undefined') return { ...DEFAULT_SETTINGS }
+      try {
+        const raw = localStorage.getItem(SETTINGS_STORAGE_KEY)
+        if (!raw) return { ...DEFAULT_SETTINGS }
+        return mergeSettings(JSON.parse(raw))
+      } catch {
+        return { ...DEFAULT_SETTINGS }
+      }
+    })
   },
 
   async updateSettings(settings: Partial<NotificationSettings>): Promise<NotificationSettings> {

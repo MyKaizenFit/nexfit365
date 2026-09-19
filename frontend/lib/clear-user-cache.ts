@@ -6,6 +6,7 @@
 import { apiCache } from './api-cache'
 import { generateCacheKey } from './api-cache'
 import { AUTH_ENDPOINTS } from './api'
+import { clearUserLocalDataOnLogout } from './user-local-storage'
 
 /**
  * Limpia toda la caché relacionada con el usuario
@@ -22,13 +23,9 @@ export function clearUserCache() {
   // Limpiar caché de estadísticas del usuario
   const statsCacheKey = generateCacheKey('/user-stats/')
   apiCache.delete(statsCacheKey)
+  apiCache.delete(generateCacheKey('/user-stats/session'))
   
-  // Limpiar localStorage relacionado con el usuario
-  if (typeof window !== 'undefined') {
-    localStorage.removeItem('userProfile')
-    localStorage.removeItem('user_profile')
-    localStorage.removeItem('initial_form_completed')
-  }
+  clearUserLocalDataOnLogout()
   
 }
 

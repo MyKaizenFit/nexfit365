@@ -553,9 +553,7 @@ function DashboardContent() {
           onSectionChange={setSelectedSection}
         />
       </Suspense>
-      {/* Desktop Layout */}
-      <div className="hidden md:flex h-full w-full">
-        <SidebarProvider>
+      <SidebarProvider>
           <Sidebar className="flex-shrink-0 border shadow-xl">
             <SidebarHeader>
               <button
@@ -681,8 +679,7 @@ function DashboardContent() {
           </Sidebar>
 
           <SidebarInset className="flex flex-col h-full flex-1 min-w-0">
-            {/* Desktop Header */}
-            <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 w-full border bg-card/95 backdrop-blur-sm">
+            <header className="hidden md:flex h-16 shrink-0 items-center gap-2 border-b px-4 w-full border bg-card/95 backdrop-blur-sm">
               <SidebarTrigger className="-ml-1 flex-shrink-0 hover:bg-muted rounded-lg transition-all duration-300" />
               <div className="responsive-flex flex-1 items-center justify-between min-w-0">
                 <div className="min-w-0 flex-1">
@@ -751,38 +748,29 @@ function DashboardContent() {
               </div>
             </header>
 
-            {/* Desktop Main Content */}
-            <main className="flex-1 min-h-0 w-full">
+            <MobileHeader
+              notifications={unreadCount}
+              onNotificationClick={handleNotificationClick}
+              selectedSection={selectedSection}
+            />
+
+            <div
+              id="mobile-scroll-content"
+              className="flex-1 min-h-0 w-full overflow-y-auto pb-28 md:pb-0"
+            >
               {renderContent()}
-            </main>
+            </div>
           </SidebarInset>
-        </SidebarProvider>
-      </div>
+      </SidebarProvider>
 
-      {/* Mobile Layout */}
-      <div className="md:hidden flex flex-col h-full w-full">
-        {/* Mobile Header */}
-        <MobileHeader
-          notifications={unreadCount}
-          onNotificationClick={handleNotificationClick}
+      <Suspense fallback={<div className="h-20 bg-card border-t md:hidden"></div>}>
+        <MobileNavigation
           selectedSection={selectedSection}
+          onSectionChange={handleMenuClick}
+          hideUpsellSections={hideUpsellSections}
+          canAccessRestWellness={canAccessRestWellness}
         />
-
-        {/* Mobile Main Content */}
-        <main id="mobile-scroll-content" className="flex-1 min-h-0 w-full pt-0 pb-28 overflow-y-auto">
-          {renderContent()}
-        </main>
-
-        {/* Mobile Bottom Navigation */}
-        <Suspense fallback={<div className="h-20 bg-card border-t"></div>}>
-          <MobileNavigation
-            selectedSection={selectedSection}
-            onSectionChange={handleMenuClick}
-            hideUpsellSections={hideUpsellSections}
-            canAccessRestWellness={canAccessRestWellness}
-          />
-        </Suspense>
-      </div>
+      </Suspense>
     </div>
   )
 }

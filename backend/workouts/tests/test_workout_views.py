@@ -434,6 +434,168 @@ class TestWorkoutLogViewSet:
         assert completed_log.notes == 'Final'
         assert completed_log.exercises_data[0]['exercise_id'] == 'a'
 
+    def test_stale_completed_true_payload_without_token_is_ignored(
+        self, auth_client, user, workout_day
+    ):
+        completed_log = WorkoutLog.objects.create(
+            user=user,
+            workout_day=workout_day,
+            date=timezone.localdate(),
+            duration_minutes=40,
+            completed=True,
+            notes='Final',
+            exercises_data=[{'exercise_id': 'final', 'sets': [{'reps': 12, 'weight': 80}]}],
+        )
+
+        response = auth_client.post('/api/workout-logs/upsert_today/', {
+            'workout_day': str(workout_day.id),
+            'completed': True,
+            'duration_minutes': 12,
+            'notes': 'Autoguardado tardío completed=true',
+            'exercises_data': [{'exercise_id': 'stale', 'sets': [{'reps': 8, 'weight': 40}]}],
+        }, format='json')
+
+        assert response.status_code == status.HTTP_409_CONFLICT
+        assert response.data.get('stale') is True
+        completed_log.refresh_from_db()
+        assert completed_log.completed is True
+        assert completed_log.notes == 'Final'
+        assert completed_log.duration_minutes == 40
+        assert completed_log.exercises_data[0]['exercise_id'] == 'final'
+
+    def test_stale_completed_true_payload_must_not_overwrite_finished_log(
+        self, auth_client, user, workout_day
+    ):
+        completed_log = WorkoutLog.objects.create(
+            user=user,
+            workout_day=workout_day,
+            date=timezone.localdate(),
+            duration_minutes=40,
+            completed=True,
+            notes='Final',
+            exercises_data=[{'exercise_id': 'final', 'sets': [{'reps': 12, 'weight': 80}]}],
+        )
+
+        response = auth_client.post('/api/workout-logs/upsert_today/', {
+            'workout_day': str(workout_day.id),
+            'completed': True,
+            'based_on_updated_at': '2020-01-01T00:00:00Z',
+            'duration_minutes': 12,
+            'notes': 'Autoguardado tardío completed=true',
+            'exercises_data': [{'exercise_id': 'stale', 'sets': [{'reps': 8, 'weight': 40}]}],
+        }, format='json')
+
+        assert response.status_code == status.HTTP_409_CONFLICT
+        assert response.data.get('stale') is True
+        completed_log.refresh_from_db()
+        assert completed_log.notes == 'Final'
+        assert completed_log.duration_minutes == 40
+        assert completed_log.exercises_data[0]['exercise_id'] == 'final'
+
+    def test_current_completed_edit_with_matching_updated_at_is_allowed(
+        self, auth_client, user, workout_day
+    ):
+        completed_log = WorkoutLog.objects.create(
+            user=user,
+            workout_day=workout_day,
+            date=timezone.localdate(),
+            duration_minutes=40,
+            completed=True,
+            notes='Final',
+            exercises_data=[{'exercise_id': 'final', 'sets': [{'reps': 12, 'weight': 80}]}],
+        )
+        token = completed_log.updated_at.isoformat().replace('+00:00', 'Z')
+
+        response = auth_client.post('/api/workout-logs/upsert_today/', {
+            'workout_day': str(workout_day.id),
+            'completed': True,
+            'based_on_updated_at': token,
+            'duration_minutes': 42,
+            'notes': 'Edición legítima',
+            'exercises_data': [{'exercise_id': 'final', 'sets': [{'reps': 10, 'weight': 85}]}],
+        }, format='json')
+
+        assert response.status_code == status.HTTP_200_OK
+        completed_log.refresh_from_db()
+        assert completed_log.notes == 'Edición legítima'
+        assert completed_log.duration_minutes == 42
+        assert completed_log.exercises_data[0]['sets'][0]['weight'] == 85
+        first_token = token
+        second_token = completed_log.updated_at.isoformat().replace('+00:00', 'Z')
+        assert second_token != first_token
+
+        second = auth_client.post('/api/workout-logs/upsert_today/', {
+            'workout_day': str(workout_day.id),
+            'completed': True,
+            'based_on_updated_at': second_token,
+            'duration_minutes': 43,
+            'notes': 'Segunda edición',
+            'exercises_data': [{'exercise_id': 'final', 'sets': [{'reps': 8, 'weight': 90}]}],
+        }, format='json')
+        assert second.status_code == status.HTTP_200_OK
+        completed_log.refresh_from_db()
+        assert completed_log.notes == 'Segunda edición'
+        assert completed_log.exercises_data[0]['sets'][0]['weight'] == 90
+
+        stale_second_writer = auth_client.post('/api/workout-logs/upsert_today/', {
+            'workout_day': str(workout_day.id),
+            'completed': True,
+            'based_on_updated_at': first_token,
+            'duration_minutes': 1,
+            'notes': 'Writer B con T1',
+            'exercises_data': [{'exercise_id': 'stale', 'sets': [{'reps': 1, 'weight': 1}]}],
+        }, format='json')
+        assert stale_second_writer.status_code == status.HTTP_409_CONFLICT
+        assert stale_second_writer.data.get('stale') is True
+        completed_log.refresh_from_db()
+        assert completed_log.notes == 'Segunda edición'
+        assert completed_log.exercises_data[0]['sets'][0]['weight'] == 90
+
+    def test_completed_edit_accepts_millisecond_and_offset_tokens(
+        self, auth_client, user, workout_day
+    ):
+        from datetime import timezone as datetime_timezone
+
+        completed_log = WorkoutLog.objects.create(
+            user=user,
+            workout_day=workout_day,
+            date=timezone.localdate(),
+            duration_minutes=40,
+            completed=True,
+            notes='Final',
+            exercises_data=[{'exercise_id': 'final', 'sets': [{'reps': 12, 'weight': 80}]}],
+        )
+        utc = completed_log.updated_at
+        if timezone.is_naive(utc):
+            utc = timezone.make_aware(utc, datetime_timezone.utc)
+        utc = utc.astimezone(datetime_timezone.utc)
+        ms_token = utc.strftime('%Y-%m-%dT%H:%M:%S') + f'.{utc.microsecond // 1000:03d}Z'
+
+        response = auth_client.post('/api/workout-logs/upsert_today/', {
+            'workout_day': str(workout_day.id),
+            'completed': True,
+            'based_on_updated_at': ms_token,
+            'duration_minutes': 41,
+            'notes': 'Token ms',
+            'exercises_data': [{'exercise_id': 'final', 'sets': [{'reps': 11, 'weight': 81}]}],
+        }, format='json')
+        assert response.status_code == status.HTTP_200_OK
+        completed_log.refresh_from_db()
+        assert completed_log.notes == 'Token ms'
+
+        offset_token = completed_log.updated_at.isoformat()
+        second = auth_client.post('/api/workout-logs/upsert_today/', {
+            'workout_day': str(workout_day.id),
+            'completed': True,
+            'based_on_updated_at': offset_token,
+            'duration_minutes': 42,
+            'notes': 'Token offset',
+            'exercises_data': [{'exercise_id': 'final', 'sets': [{'reps': 10, 'weight': 82}]}],
+        }, format='json')
+        assert second.status_code == status.HTTP_200_OK
+        completed_log.refresh_from_db()
+        assert completed_log.notes == 'Token offset'
+
     def test_upsert_today_rejects_other_users_workout_day(
         self, auth_client, user2, exercise
     ):

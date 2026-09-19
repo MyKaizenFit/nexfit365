@@ -22,7 +22,14 @@ from .serializers import (
     NutritionPlanHistorySerializer, RecipeIngredientSerializer,
     CommunityRecipePostSerializer, CommunityRecipeCommentSerializer,
 )
-from .services import PersonalizedNutritionService, recipe_is_compatible_for_user
+from .services import (
+    PersonalizedNutritionService,
+    recipe_is_compatible_for_user,
+    _get_user_blocked_terms,
+    _get_user_dietary_restrictions,
+    _recipe_matches_blocked_terms,
+    _recipe_supports_user_restrictions,
+)
 from backend.media_urls import recipe_image_display_url
 from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
@@ -289,11 +296,46 @@ def plan_meals_for_selection(request):
     has_admin_calorie_override = bool(getattr(user, 'admin_calories_override', None))
 
     excluded_recipe_ids = _get_excluded_recipe_ids(user)
+    blocked_terms = _get_user_blocked_terms(user)
+    restrictions = _get_user_dietary_restrictions(user)
+    # Request-local only: never share across users or requests.
+    _active_recipes_cache = None
+    _compatible_recipes_cache = None
 
     def recipe_allowed_for_user(recipe: Recipe) -> bool:
         if str(recipe.id).lower() in excluded_recipe_ids:
             return False
-        return recipe_is_compatible_for_user(recipe, user)
+        if not _recipe_supports_user_restrictions(recipe, restrictions):
+            return False
+        if _recipe_matches_blocked_terms(recipe, blocked_terms):
+            return False
+        return True
+
+    def _recipe_matches_slot(recipe: Recipe, meal_type: str) -> bool:
+        if not meal_type:
+            return True
+        wanted = meal_type.lower()
+        candidate_meal_types = [str(item).lower() for item in (recipe.meal_types or [])]
+        candidate_category = str(recipe.category or '').lower()
+        return wanted in candidate_meal_types or candidate_category == wanted
+
+    def _request_active_recipes():
+        nonlocal _active_recipes_cache
+        if _active_recipes_cache is None:
+            qs = Recipe.objects.filter(is_active=True)
+            if excluded_recipe_ids:
+                qs = qs.exclude(id__in=excluded_recipe_ids)
+            _active_recipes_cache = list(qs)
+        return _active_recipes_cache
+
+    def _request_compatible_recipes():
+        nonlocal _compatible_recipes_cache
+        if _compatible_recipes_cache is None:
+            _compatible_recipes_cache = [
+                recipe for recipe in _request_active_recipes()
+                if recipe_allowed_for_user(recipe)
+            ]
+        return _compatible_recipes_cache
 
     def build_recipe_option(recipe: Recipe, meal_type: str, meal_base=None, meal_id=None):
         personalized = personalize_recipe(recipe, meal_type, meal_base)
@@ -316,14 +358,10 @@ def plan_meals_for_selection(request):
     def replacement_candidates(meal_type: str, used_ids=None):
         used_ids = used_ids or set()
         candidates = []
-        for candidate in Recipe.objects.filter(is_active=True).exclude(id__in=excluded_recipe_ids):
+        for candidate in _request_compatible_recipes():
             if candidate.id in used_ids:
                 continue
-            candidate_meal_types = [str(item).lower() for item in (candidate.meal_types or [])]
-            candidate_category = str(candidate.category or '').lower()
-            if meal_type.lower() not in candidate_meal_types and candidate_category != meal_type.lower():
-                continue
-            if not recipe_allowed_for_user(candidate):
+            if not _recipe_matches_slot(candidate, meal_type):
                 continue
             candidates.append(candidate)
         return candidates
@@ -660,15 +698,6 @@ def plan_meals_for_selection(request):
 
         skip_recipe_ids = set(excluded_recipe_ids)
         user_allergens = set(getattr(user, 'allergies', None) or [])
-        from nutrition.services import (
-            _get_user_blocked_terms,
-            _get_user_dietary_restrictions,
-            _recipe_matches_blocked_terms,
-            _recipe_supports_user_restrictions,
-        )
-        # Una sola lectura de exclusiones de ingredientes; el ranking no hace N+1.
-        blocked_terms = _get_user_blocked_terms(user)
-        restrictions = _get_user_dietary_restrictions(user)
         for meal in meals:
             recipes = [mr.recipe for mr in list(meal.meal_recipes.all()) if mr.recipe]
             recipes.extend(list(meal.suggested_recipes.all()))
@@ -836,19 +865,13 @@ def plan_meals_for_selection(request):
         'dinner': '🌙',
     }
 
-    recipes_qs = Recipe.objects.filter(is_active=True)
-    if excluded_recipe_ids:
-        recipes_qs = recipes_qs.exclude(id__in=excluded_recipe_ids)
+    compatible_recipes = _request_compatible_recipes()
     for meal_type in fallback_types:
         meal_options = []
-        candidates = []
-        for candidate in recipes_qs:
-            if not recipe_allowed_for_user(candidate):
-                continue
-            candidate_meal_types = [str(item).lower() for item in (candidate.meal_types or [])]
-            candidate_category = str(candidate.category or '').lower()
-            if meal_type and (meal_type.lower() in candidate_meal_types or candidate_category == meal_type.lower()):
-                candidates.append(candidate)
+        candidates = [
+            candidate for candidate in compatible_recipes
+            if _recipe_matches_slot(candidate, meal_type)
+        ]
 
         for recipe in candidates:
             personalized = personalize_recipe(recipe, meal_type)
