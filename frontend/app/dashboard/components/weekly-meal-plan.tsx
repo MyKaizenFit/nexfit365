@@ -15,15 +15,13 @@ import { API_CONFIG, authenticatedFetch } from "@/lib/api"
 import { formatMacro } from "@/lib/utils"
 import { WeeklyCalendarSkeleton } from "@/components/dashboard/dashboard-skeletons"
 import { cn } from "@/lib/utils"
-
-const getMondayOfWeek = (date: Date): Date => {
-  const monday = new Date(date)
-  const weekday = monday.getDay()
-  const diff = weekday === 0 ? -6 : 1 - weekday
-  monday.setDate(monday.getDate() + diff)
-  monday.setHours(0, 0, 0, 0)
-  return monday
-}
+import {
+  formatLocalDate,
+  isIsoDateInLocalWeek,
+  mondayOfLocalWeek,
+  parseLocalDate,
+  shiftLocalWeekSelection,
+} from "@/lib/local-date"
 
 const getErrorMessage = (error: unknown): string => {
   if (error instanceof Error) return error.message
@@ -109,8 +107,8 @@ interface PlanDayData {
 }
 
 export function WeeklyMealPlan() {
-  const todayStr = format(new Date(), 'yyyy-MM-dd')
-  const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() => getMondayOfWeek(new Date()))
+  const todayStr = formatLocalDate(new Date())
+  const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() => mondayOfLocalWeek(new Date()))
   
   const [weeklySelections, setWeeklySelections] = useState<Record<string, WeeklyMealSelection[]>>({})
   const [loading, setLoading] = useState(false)
@@ -509,7 +507,7 @@ export function WeeklyMealPlan() {
           await persistMealSelection(dateStr, slot, recommended, true)
           toast({
             title: "✅ Comida completada",
-            description: `${recommended.name} confirmada para ${format(new Date(dateStr), 'EEEE d', { locale: es })}`,
+            description: `${recommended.name} confirmada para ${format(parseLocalDate(dateStr), 'EEEE d', { locale: es })}`,
           })
         } catch {
           toast({
@@ -546,7 +544,7 @@ export function WeeklyMealPlan() {
       )
       toast({
         title: newCompletedStatus ? "✅ Comida completada" : "📋 Comida desmarcada",
-        description: `Estado actualizado para ${format(new Date(dateStr), 'EEEE d', { locale: es })}`,
+        description: `Estado actualizado para ${format(parseLocalDate(dateStr), 'EEEE d', { locale: es })}`,
       })
     } catch {
       toast({
@@ -561,7 +559,7 @@ export function WeeklyMealPlan() {
 
   const weekDays = getWeekDays()
 
-  const isCurrentWeek = getMondayOfWeek(new Date()).getTime() === currentWeekStart.getTime()
+  const isCurrentWeek = mondayOfLocalWeek(new Date()).getTime() === currentWeekStart.getTime()
 
   const countDayMeals = (dateStr: string) => {
     let filled = 0
@@ -590,21 +588,32 @@ export function WeeklyMealPlan() {
 
   const shiftWeek = (delta: number) => {
     setCurrentWeekStart((prev) => {
-      const next = new Date(prev)
-      next.setDate(prev.getDate() + delta * 7)
+      const next = new Date(prev.getFullYear(), prev.getMonth(), prev.getDate())
+      next.setDate(next.getDate() + delta * 7)
       return next
     })
     if (selectedDay) {
-      const selected = new Date(selectedDay)
-      selected.setDate(selected.getDate() + delta * 7)
-      setSelectedDay(format(selected, 'yyyy-MM-dd'))
+      setSelectedDay(shiftLocalWeekSelection(selectedDay, delta))
     }
   }
 
   const goToThisWeek = () => {
-    setCurrentWeekStart(getMondayOfWeek(new Date()))
+    setCurrentWeekStart(mondayOfLocalWeek(new Date()))
     setSelectedDay(todayStr)
   }
+
+  useEffect(() => {
+    if (!selectedDay) return
+    if (isIsoDateInLocalWeek(selectedDay, currentWeekStart)) return
+    const weekday = parseLocalDate(selectedDay).getDay()
+    const index = Number.isNaN(weekday) ? 0 : weekday === 0 ? 6 : weekday - 1
+    const aligned = new Date(
+      currentWeekStart.getFullYear(),
+      currentWeekStart.getMonth(),
+      currentWeekStart.getDate() + index,
+    )
+    setSelectedDay(formatLocalDate(aligned))
+  }, [currentWeekStart, selectedDay])
 
   const selectDay = (dateStr: string) => {
     setSelectedDay(dateStr)
@@ -745,7 +754,7 @@ export function WeeklyMealPlan() {
               <>
                 <div className="px-0.5">
                   <h3 className="text-base md:text-lg font-bold capitalize">
-                    {format(new Date(selectedDay), "EEEE d 'de' MMMM", { locale: es })}
+                    {format(parseLocalDate(selectedDay), "EEEE d 'de' MMMM", { locale: es })}
                   </h3>
                   <p className="text-xs text-muted-foreground">Toca una comida para elegir o cambiar la receta</p>
                 </div>

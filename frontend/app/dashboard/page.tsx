@@ -558,9 +558,14 @@ function DashboardContent() {
         <SidebarProvider>
           <Sidebar className="flex-shrink-0 border shadow-xl">
             <SidebarHeader>
-              <div className="flex items-center gap-3 px-4 py-3">
+              <button
+                type="button"
+                onClick={() => handleMenuClick("dashboard", "Inicio")}
+                className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+                aria-label="Ir al inicio"
+              >
                 <div className="flex aspect-square size-10 items-center justify-center rounded-xl flex-shrink-0 overflow-hidden">
-                  <Image src={appPath('/icono.png')} alt="NEXFIT" width={40} height={40} quality={100} />
+                  <Image src={appPath('/icono.png')} alt="" width={40} height={40} quality={100} />
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight min-w-0">
                   <div className="flex items-center">
@@ -569,7 +574,7 @@ function DashboardContent() {
                   </div>
                   <span className="truncate text-xs text-muted-foreground">Inicio</span>
                 </div>
-              </div>
+              </button>
             </SidebarHeader>
             <SidebarContent>
               <SidebarGroup>
@@ -695,18 +700,24 @@ function DashboardContent() {
                   </Suspense>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Avatar className="cursor-pointer hover:ring-4 hover:ring-teal-200 transition-all duration-300">
-                        <AvatarImage
-                          src={
-                            user?.profile_picture_url ||
-                            user?.profile_picture ||
-                            undefined
-                          }
-                        />
-                        <AvatarFallback className="bg-gradient-to-br from-teal-400 to-cyan-500 text-white">
-                          {user?.first_name?.[0] || ''}{user?.last_name?.[0] || '' || 'U'}
-                        </AvatarFallback>
-                      </Avatar>
+                      <button
+                        type="button"
+                        aria-label="Menú de cuenta"
+                        className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+                      >
+                        <Avatar className="hover:ring-4 hover:ring-teal-200 transition-all duration-300">
+                          <AvatarImage
+                            src={
+                              user?.profile_picture_url ||
+                              user?.profile_picture ||
+                              undefined
+                            }
+                          />
+                          <AvatarFallback className="bg-gradient-to-br from-teal-400 to-cyan-500 text-white">
+                            {user?.first_name?.[0] || ''}{user?.last_name?.[0] || '' || 'U'}
+                          </AvatarFallback>
+                        </Avatar>
+                      </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-56 border shadow-xl bg-card/95 backdrop-blur-sm">
                       <DropdownMenuItem

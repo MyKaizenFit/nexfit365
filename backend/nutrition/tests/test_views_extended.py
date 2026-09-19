@@ -508,6 +508,35 @@ class TestDailyMealSelections:
         log = MealLog.objects.get(user=user, date='2026-06-01', meal_type='lunch')
         assert log.completed is True
 
+    def test_post_selection_persists_substitution_details(self, auth_client, user, recipe):
+        details = [{
+            'original_food_name': 'Arroz blanco',
+            'original_quantity': 80,
+            'original_unit': 'g',
+            'replacement_food_name': 'Quinoa',
+            'replacement_quantity': 75,
+            'replacement_unit': 'g',
+            'target_calories': 110,
+        }]
+        payload = {
+            'date': '2026-06-02',
+            'meal_type': 'lunch',
+            'recipe_id': str(recipe.id),
+            'completed': False,
+            'substitution_details': details,
+            'custom_description': 'Bowl (Arroz blanco por 75g de Quinoa)',
+        }
+        created = auth_client.post('/api/nutrition/daily-meal-selections/', payload, format='json')
+        assert created.status_code in [status.HTTP_200_OK, status.HTTP_201_CREATED]
+        assert created.data['substitution_details'] == details
+
+        listed = auth_client.get('/api/nutrition/daily-meal-selections/?date=2026-06-02')
+        assert listed.status_code == status.HTTP_200_OK
+        rows = listed.data.get('selections') or []
+        assert rows[0]['substitution_details'] == details
+        log = MealLog.objects.get(user=user, date='2026-06-02', meal_type='lunch')
+        assert log.substitution_details == details
+
 
 @pytest.mark.django_db
 class TestMealExclusionsManagement:

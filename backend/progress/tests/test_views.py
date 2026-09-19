@@ -329,6 +329,27 @@ class TestWeightEntryViews:
         entry.refresh_from_db()
         assert entry.weight == Decimal("71.0")
 
+    def test_create_weight_entry_decimal_and_get(self, auth_headers, member_user):
+        url = reverse("weight-history-list")
+        response = auth_headers.post(url, {"weight": "72.35", "date": "2025-01-02"}, format="json")
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.data["weight"] == pytest.approx(72.35)
+
+        listed = auth_headers.get(url)
+        assert listed.status_code == status.HTTP_200_OK
+        weights = [row["weight"] for row in listed.data["results"]]
+        assert 72.35 in weights
+
+    def test_update_weight_entry_syncs_user_weight(self, auth_headers, member_user):
+        entry = WeightEntry.objects.create(
+            user=member_user, weight=Decimal("70.0"), date="2025-01-03"
+        )
+        url = reverse("weight-history-detail", args=[entry.id])
+        response = auth_headers.patch(url, {"weight": "68.4"}, format="json")
+        assert response.status_code == status.HTTP_200_OK
+        member_user.refresh_from_db()
+        assert member_user.weight == pytest.approx(68.4)
+
 
 @pytest.mark.django_db
 class TestBodyMeasurementViews:
@@ -393,6 +414,42 @@ class TestBodyMeasurementViews:
         assert response.status_code == status.HTTP_200_OK
         measurement.refresh_from_db()
         assert measurement.chest == Decimal("96.0")
+
+    def test_create_measurement_rejects_duplicate_date(self, auth_headers, member_user):
+        BodyMeasurement.objects.create(
+            user=member_user, date="2025-01-01", waist=Decimal("80.0")
+        )
+        url = reverse("measurements-list")
+        response = auth_headers.post(
+            url, {"date": "2025-01-01", "chest": "90.0"}, format="json"
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert BodyMeasurement.objects.filter(user=member_user, date="2025-01-01").count() == 1
+
+    def test_create_measurement_partial_fields_and_reload(self, auth_headers, member_user):
+        url = reverse("measurements-list")
+        created = auth_headers.post(
+            url, {"date": "2025-02-01", "waist": "71.5"}, format="json"
+        )
+        assert created.status_code == status.HTTP_201_CREATED
+        assert created.data["waist"] == "71.50" or float(created.data["waist"]) == 71.5
+        assert created.data["chest"] in (None, "")
+
+        listed = auth_headers.get(url)
+        rows = listed.data["results"]
+        row = next(item for item in rows if item["date"] == "2025-02-01")
+        assert float(row["waist"]) == 71.5
+
+    def test_patch_measurement_updates_existing_day(self, auth_headers, member_user):
+        measurement = BodyMeasurement.objects.create(
+            user=member_user, date="2025-03-01", waist=Decimal("80.0")
+        )
+        url = reverse("measurements-detail", args=[measurement.id])
+        response = auth_headers.patch(url, {"chest": "94.2"}, format="json")
+        assert response.status_code == status.HTTP_200_OK
+        measurement.refresh_from_db()
+        assert measurement.chest == Decimal("94.20")
+        assert measurement.waist == Decimal("80.00")
 
 
 @pytest.mark.django_db

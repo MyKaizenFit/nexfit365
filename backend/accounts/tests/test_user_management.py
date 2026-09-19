@@ -56,6 +56,34 @@ class TestProfileEndpoints:
         assert member_user.first_name == "Nuevo"
         assert member_user.last_name == "Nombre"
 
+    def test_profile_patch_saves_phone_number_roundtrip(self, api_client, member_user):
+        api_client.force_authenticate(user=member_user)
+        url = reverse("profile")
+
+        response = api_client.patch(url, {"phone_number": "+34600111222"}, format="json")
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["phone_number"] == "+34600111222"
+
+        member_user.refresh_from_db()
+        assert member_user.phone_number == "+34600111222"
+
+        fetched = api_client.get(url)
+        assert fetched.status_code == status.HTTP_200_OK
+        assert fetched.data["phone_number"] == "+34600111222"
+
+    def test_profile_patch_ignores_unknown_bio_field(self, api_client, member_user):
+        api_client.force_authenticate(user=member_user)
+        url = reverse("profile")
+        response = api_client.patch(
+            url,
+            {"first_name": "Ana", "bio": "Esto no existe en el modelo"},
+            format="json",
+        )
+        assert response.status_code == status.HTTP_200_OK
+        member_user.refresh_from_db()
+        assert member_user.first_name == "Ana"
+        assert not hasattr(member_user, "bio")
+
     def test_profile_patch_accepts_sensitive_list_fields(self, api_client, member_user):
         api_client.force_authenticate(user=member_user)
         url = reverse("profile")
@@ -73,6 +101,62 @@ class TestProfileEndpoints:
         assert member_user.dietary_restrictions == ["gluten_free", "lactose_free"]
         assert member_user.allergies == ["nuts", "dairy"]
         assert member_user.medical_conditions == ["asma"]
+
+    def test_profile_patch_unwraps_nested_preference_repr(self, api_client, member_user):
+        api_client.force_authenticate(user=member_user)
+        url = reverse("profile")
+
+        response = api_client.patch(
+            url,
+            {"dietary_restrictions": "['Vegano', 'Intolerancia a la lactosa', 'celíaco']"},
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        member_user.refresh_from_db()
+        assert member_user.dietary_restrictions == [
+            "Vegano",
+            "Intolerancia a la lactosa",
+            "celíaco",
+        ]
+        assert response.data["dietary_restrictions"] == [
+            "Vegano",
+            "Intolerancia a la lactosa",
+            "celíaco",
+        ]
+
+    def test_profile_get_unwraps_stored_preference_fragments(self, api_client, member_user):
+        member_user.dietary_restrictions = ["['Vegano'", "'Intolerancia a la lactosa'", "'celíaco']"]
+        member_user.save(update_fields=["dietary_restrictions"])
+        api_client.force_authenticate(user=member_user)
+
+        response = api_client.get(reverse("profile"))
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["dietary_restrictions"] == [
+            "Vegano",
+            "Intolerancia a la lactosa",
+            "celíaco",
+        ]
+
+    def test_profile_patch_round_trip_does_not_reencode_preferences(self, api_client, member_user):
+        api_client.force_authenticate(user=member_user)
+        url = reverse("profile")
+        first = api_client.patch(
+            url,
+            {"dietary_restrictions": ["Vegano", "Intolerancia a la lactosa", "Celíaco"]},
+            format="json",
+        )
+        assert first.status_code == status.HTTP_200_OK
+
+        second = api_client.patch(
+            url,
+            {"dietary_restrictions": first.data["dietary_restrictions"]},
+            format="json",
+        )
+        assert second.status_code == status.HTTP_200_OK
+        member_user.refresh_from_db()
+        assert member_user.dietary_restrictions == ["Vegano", "Intolerancia a la lactosa", "Celíaco"]
 
     def test_profile_patch_notifies_admins_on_relevant_changes(self, api_client, member_user, admin_user):
         api_client.force_authenticate(user=member_user)

@@ -76,21 +76,28 @@ export function MobileHeader({ notifications, onNotificationClick, selectedSecti
       <div className="responsive-flex h-16 items-center justify-between px-4 sm:px-6 w-full safe-area-pl safe-area-pr">
         {/* Left side - Logo/Title */}
         <div className="responsive-flex items-center gap-3 min-w-0 flex-1 pl-2">
-          <div className="flex aspect-square size-9 sm:size-10 items-center justify-center rounded-xl flex-shrink-0 overflow-hidden">
-            <Image src={appPath('/icono.png')} alt="NEXFIT" width={40} height={40} quality={100} />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h1 className="text-lg sm:text-xl font-semibold responsive-text">
-              {sectionTitles[selectedSection] ? (
-                sectionTitles[selectedSection]
-              ) : (
-                <span>
-                  <span className="text-orange-500">NEX</span>
-                  <span className="text-muted-foreground">FIT</span>
-                </span>
-              )}
-            </h1>
-          </div>
+          <button
+            type="button"
+            onClick={() => navigateToDashboardSection(router, "dashboard")}
+            className="flex min-w-0 items-center gap-3 rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+            aria-label="Ir al inicio"
+          >
+            <div className="flex aspect-square size-9 sm:size-10 items-center justify-center rounded-xl flex-shrink-0 overflow-hidden">
+              <Image src={appPath('/icono.png')} alt="" width={40} height={40} quality={100} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-lg sm:text-xl font-semibold responsive-text">
+                {sectionTitles[selectedSection] ? (
+                  sectionTitles[selectedSection]
+                ) : (
+                  <span>
+                    <span className="text-orange-500">NEX</span>
+                    <span className="text-muted-foreground">FIT</span>
+                  </span>
+                )}
+              </h1>
+            </div>
+          </button>
         </div>
 
         {/* Right side - Actions */}
@@ -112,18 +119,24 @@ export function MobileHeader({ notifications, onNotificationClick, selectedSecti
           {/* Profile menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Avatar className="h-9 w-9 cursor-pointer hover:ring-4 hover:ring-teal-200 transition-all duration-300 flex-shrink-0 ml-1">
-                <AvatarImage
-                  src={
-                    user?.profile_picture_url ||
-                    user?.profile_picture ||
-                    undefined
-                  }
-                />
-                <AvatarFallback className="text-sm font-medium bg-gradient-to-br from-teal-400 to-cyan-500 text-white">
-                  {user?.first_name?.[0] || 'U'}{user?.last_name?.[0] || ''}
-                </AvatarFallback>
-              </Avatar>
+              <button
+                type="button"
+                aria-label="Menú de cuenta"
+                className="ml-1 flex-shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+              >
+                <Avatar className="h-9 w-9 hover:ring-4 hover:ring-teal-200 transition-all duration-300">
+                  <AvatarImage
+                    src={
+                      user?.profile_picture_url ||
+                      user?.profile_picture ||
+                      undefined
+                    }
+                  />
+                  <AvatarFallback className="text-sm font-medium bg-gradient-to-br from-teal-400 to-cyan-500 text-white">
+                    {user?.first_name?.[0] || 'U'}{user?.last_name?.[0] || ''}
+                  </AvatarFallback>
+                </Avatar>
+              </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56 mr-2 border shadow-xl bg-card/95 backdrop-blur-sm">
               <DropdownMenuItem

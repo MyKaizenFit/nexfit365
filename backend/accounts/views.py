@@ -69,6 +69,8 @@ def profile(request):
         if serializer.is_valid():
             old_snapshot = model_to_dict(request.user, fields=PROFILE_AUDIT_FIELDS)
             user = serializer.save()
+            from dashboard.user_cache import invalidate_user_dashboard_cache
+            invalidate_user_dashboard_cache(user.pk)
             
             # Verificar campos actualizados
             updated_fields = set(request.data.keys())
@@ -83,7 +85,7 @@ def profile(request):
                     logger = logging.getLogger(__name__)
                     
                     # Buscar si ya existe una entrada para hoy
-                    today = timezone.now().date()
+                    today = timezone.localdate()
                     existing_entry = WeightEntry.objects.filter(
                         user=user,
                         date=today

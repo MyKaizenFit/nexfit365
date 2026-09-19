@@ -58,13 +58,13 @@ class DashboardViewSet(viewsets.ModelViewSet):
         user = get_object_or_404(CustomUser, id=user_id)
         
         # Verificar cache
-        cache_key = f"dashboard_today_{user_id}_{timezone.now().date()}"
+        cache_key = f"dashboard_today_{user_id}_{timezone.localdate()}"
         cached_data = cache.get(cache_key)
         
         if cached_data:
             return Response(cached_data)
         
-        today = timezone.now().date()
+        today = timezone.localdate()
         
         # Datos de nutrición del día
         from nutrition.models import MealLog, NutritionPlan
@@ -173,13 +173,13 @@ class DashboardViewSet(viewsets.ModelViewSet):
         user = get_object_or_404(CustomUser, id=user_id)
         
         # Verificar cache
-        cache_key = f"dashboard_weekly_{user_id}_{timezone.now().date()}"
+        cache_key = f"dashboard_weekly_{user_id}_{timezone.localdate()}"
         cached_data = cache.get(cache_key)
         
         if cached_data:
             return Response(cached_data)
         
-        today = timezone.now().date()
+        today = timezone.localdate()
         week_start = today - timedelta(days=today.weekday())
         week_end = week_start + timedelta(days=6)
         
@@ -319,13 +319,13 @@ class DashboardViewSet(viewsets.ModelViewSet):
         user = get_object_or_404(CustomUser, id=user_id)
         
         # Verificar cache
-        cache_key = f"dashboard_monthly_{user_id}_{timezone.now().strftime('%Y-%m')}"
+        cache_key = f"dashboard_monthly_{user_id}_{timezone.localdate().strftime('%Y-%m')}"
         cached_data = cache.get(cache_key)
         
         if cached_data:
             return Response(cached_data)
         
-        today = timezone.now().date()
+        today = timezone.localdate()
         month_start = today.replace(day=1)
         month_end = (month_start + timedelta(days=32)).replace(day=1) - timedelta(days=1)
         
