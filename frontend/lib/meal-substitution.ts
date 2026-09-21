@@ -16,8 +16,32 @@ function foldName(value: string): string {
 function namesMatch(left: string, right: string): boolean {
   const a = foldName(left)
   const b = foldName(right)
-  if (!a || !b) return false
-  return a === b || a.includes(b) || b.includes(a)
+  return Boolean(a) && a === b
+}
+
+function substitutionIdentity(item: MealIngredientSubstitution): string {
+  if (item.ingredient_id) return `ingredient:${item.ingredient_id}`
+  if (item.original_food_id) return `food:${item.original_food_id}`
+  return `name:${foldName(item.original_food_name)}`
+}
+
+export function formatSubstitutionNote(item: MealIngredientSubstitution): string {
+  return `${item.original_food_name} por ${item.replacement_quantity}${item.replacement_unit} de ${item.replacement_food_name}`
+}
+
+export function mergeSubstitutionDetails(
+  existing: MealIngredientSubstitution[] | null | undefined,
+  next: MealIngredientSubstitution,
+): MealIngredientSubstitution[] {
+  const current = Array.isArray(existing) ? existing.filter(Boolean) : []
+  const nextKey = substitutionIdentity(next)
+  const index = current.findIndex((item) => substitutionIdentity(item) === nextKey)
+  if (index >= 0) {
+    const merged = [...current]
+    merged[index] = next
+    return merged
+  }
+  return [...current, next]
 }
 
 export function overlaySubstitutionsOnIngredients(
@@ -39,11 +63,35 @@ export function overlaySubstitutionsOnIngredients(
   })
 }
 
+export function isSameMealOption(
+  option: Pick<MealOption, "id" | "recipeId">,
+  currentSelection?: { optionId?: string | null; recipeId?: string | null } | null,
+): boolean {
+  if (!currentSelection) return false
+  if (currentSelection.recipeId && option.recipeId && String(currentSelection.recipeId) === String(option.recipeId)) {
+    return true
+  }
+  if (currentSelection.optionId && String(currentSelection.optionId) === String(option.id)) {
+    return true
+  }
+  return false
+}
+
+export function shouldPersistMealOptionSelection(
+  option: MealOption,
+  currentSelection?: { optionId?: string | null; recipeId?: string | null } | null,
+): boolean {
+  if (!isSameMealOption(option, currentSelection)) return true
+  return Array.isArray(option.substitution_details) && option.substitution_details.length > 0
+}
+
 export function buildMealOptionFromSubstitution(
   recipe: Recipe,
   substitution: MealIngredientSubstitution,
+  existingSubstitutions?: MealIngredientSubstitution[] | null,
 ): MealOption {
-  const note = `${substitution.original_food_name} por ${substitution.replacement_quantity}${substitution.replacement_unit} de ${substitution.replacement_food_name}`
+  const substitutionDetails = mergeSubstitutionDetails(existingSubstitutions, substitution)
+  const note = substitutionDetails.map(formatSubstitutionNote).join(", ")
   return {
     id: `recipe-${recipe.id}`,
     name: recipe.name,
@@ -58,6 +106,6 @@ export function buildMealOptionFromSubstitution(
     cookTime: recipe.prep_time_minutes ? `${recipe.prep_time_minutes} min` : undefined,
     recipeId: recipe.id,
     customDescription: `${recipe.name} (${note})`,
-    substitution_details: [substitution],
+    substitution_details: substitutionDetails,
   }
 }

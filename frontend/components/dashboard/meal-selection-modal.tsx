@@ -3,7 +3,13 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { IngredientSubstitution, IngredientSubstitutionResponse, MealIngredientSubstitution, MealOption, MealRecommendationLevel, nutritionService, Recipe, PersonalizedRecipeQuantities } from '@/lib/nutrition-service'
-import { buildMealOptionFromSubstitution, overlaySubstitutionsOnIngredients } from '@/lib/meal-substitution'
+import {
+  buildMealOptionFromSubstitution,
+  formatSubstitutionNote,
+  overlaySubstitutionsOnIngredients,
+  shouldPersistMealOptionSelection,
+  isSameMealOption,
+} from '@/lib/meal-substitution'
 import { API_CONFIG } from '@/lib/api'
 import { X, Clock, Zap, Leaf, ChefHat, Target, Users, BookOpen, Loader2, Shuffle, ArrowLeft, ChevronRight } from 'lucide-react'
 import { formatMacro } from '@/lib/utils'
@@ -489,10 +495,7 @@ export function MealSelectionModal({
     const optionCandidates = initialOption
       ? [initialOption, ...options.filter((opt) => String(opt.id) !== String(initialOption.id))]
       : options
-    const currentOption = optionCandidates.find(opt =>
-      (currentSelection?.recipeId && opt.recipeId && String(currentSelection.recipeId) === String(opt.recipeId)) ||
-      (currentSelection?.optionId && String(currentSelection.optionId) === String(opt.id))
-    )
+    const currentOption = optionCandidates.find(opt => isSameMealOption(opt, currentSelection))
     if (!currentOption) {
       if (initialView === 'recetas-equivalencias') {
         handleViewAllRecipes(undefined, { equivalenceOnly: false })
@@ -519,17 +522,15 @@ export function MealSelectionModal({
   if (!isOpen || !mounted) return null
 
   const isOptionCurrentSelection = (option: MealOption) => {
-    return (
-      (currentSelection?.recipeId && option.recipeId && String(currentSelection.recipeId) === String(option.recipeId)) ||
-      (currentSelection?.optionId && String(currentSelection.optionId) === String(option.id))
-    )
+    return isSameMealOption(option, currentSelection)
   }
 
   const handleSelectOption = (option: MealOption) => {
     // "Cambiar" must not toggle-off the current recipe on card tap — that made the
     // meal fall back to the first suggested option (looked like a redirect to another recipe).
     // Explicit deselection stays on the "Quitar" button.
-    if (isOptionCurrentSelection(option)) {
+    // Ingredient substitutions keep the same recipeId, so those updates must still persist.
+    if (!shouldPersistMealOptionSelection(option, currentSelection)) {
       onClose()
       return
     }
@@ -967,6 +968,7 @@ export function MealSelectionModal({
             }
           }}
           onSelectOption={handleSelectOption}
+          initialOption={initialOption}
         />
       )}
     </>
@@ -1126,7 +1128,7 @@ function RecipeDetailModal({
                 <div className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
                   {substitutionDetails.map((item, index) => (
                     <p key={`${item.replacement_food_id}-${index}`}>
-                      Cambio: {item.original_food_name} por {item.replacement_quantity}{item.replacement_unit} de {item.replacement_food_name}
+                      Cambio: {formatSubstitutionNote(item)}
                     </p>
                   ))}
                 </div>
@@ -1282,6 +1284,7 @@ interface AllRecipesModalProps {
   autoOpenEquivalenceRecipeId?: string | null
   equivalenceOnlyMode?: boolean
   onAutoOpenConsumed?: () => void
+  initialOption?: MealOption | null
 }
 
 function AllRecipesModal({
@@ -1294,7 +1297,8 @@ function AllRecipesModal({
   onSelectOption,
   autoOpenEquivalenceRecipeId,
   equivalenceOnlyMode = false,
-  onAutoOpenConsumed
+  onAutoOpenConsumed,
+  initialOption,
 }: AllRecipesModalProps) {
   const [mounted, setMounted] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
@@ -1419,11 +1423,11 @@ function AllRecipesModal({
     const substitution = buildSubstitutionPayload(item)
     if (!substitution) return
 
-    const note = `${substitution.original_food_name} por ${substitution.replacement_quantity}${substitution.replacement_unit} de ${substitution.replacement_food_name}`
-    const option = buildMealOptionFromSubstitution(substitutionRecipe, substitution)
-    if (!option.customDescription) {
-      option.customDescription = `${substitutionRecipe.name} (${note})`
-    }
+    const existingSubstitutions =
+      initialOption && String(initialOption.recipeId) === String(substitutionRecipe.id)
+        ? initialOption.substitution_details
+        : undefined
+    const option = buildMealOptionFromSubstitution(substitutionRecipe, substitution, existingSubstitutions)
 
     onSelectOption(option)
     setSubstitutionRecipe(null)

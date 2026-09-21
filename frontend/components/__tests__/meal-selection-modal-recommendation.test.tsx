@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import {
   alignPersonalizedQuantitiesWithOption,
   MealSelectionModal,
@@ -252,5 +252,40 @@ describe('MealSelectionModal recommendations', () => {
     expect(aligned.macros).toMatchObject({ calories: 500, protein: 35, carbs: 60, fat: 14 })
     expect(aligned.ingredients[0].amount).toBe(125)
     expect(aligned.ingredients[1]).toEqual(personalized.ingredients[1])
+  })
+
+  it('does not reselect the current recipe on card tap, keeping previous substitution hotfix', async () => {
+    mockGetReco.mockResolvedValue({
+      date: '2026-08-04',
+      plan_meal_id: 'slot-dinner',
+      alternatives: fallbackOptions.map((option, index) => ({
+        ...option,
+        is_current_selection: index === 0,
+      })),
+    })
+    const onSelectOption = jest.fn()
+    const onClose = jest.fn()
+
+    render(
+      <MealSelectionModal
+        isOpen
+        onClose={onClose}
+        mealName="Cena"
+        mealTime="20:00"
+        mealType="dinner"
+        planMealId="slot-dinner"
+        options={fallbackOptions}
+        currentSelection={{ recipeId: 'heavy', optionId: fallbackOptions[0].id }}
+        onSelectOption={onSelectOption}
+      />,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('Seleccionada')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('heading', { name: 'Cena pesada' }))
+    expect(onSelectOption).not.toHaveBeenCalled()
+    expect(onClose).toHaveBeenCalled()
   })
 })

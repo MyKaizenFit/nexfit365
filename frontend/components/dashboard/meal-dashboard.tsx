@@ -6,6 +6,7 @@ import { DailyMacroTrackerSimple } from './daily-macro-tracker-simple'
 import { MealSelectionModal } from './meal-selection-modal'
 import { MealOption } from '@/lib/nutrition-service'
 import { resolveDisplayedMealOption } from '@/lib/meal-preview'
+import { formatSubstitutionNote } from '@/lib/meal-substitution'
 import { Clock, Plus, Utensils, Cloud, Target, ChefHat, RefreshCw, Flame, Calendar, CalendarDays, SkipForward, Pencil, Shuffle, BookOpen } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -353,7 +354,11 @@ export function MealDashboard() {
                     ) : null}
                     {meal.selectedOption?.substitution_details?.length ? (
                       <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-2 text-[10px] font-semibold text-emerald-800 md:text-xs">
-                        Cambio: {meal.selectedOption.substitution_details[0].original_food_name} por {meal.selectedOption.substitution_details[0].replacement_quantity}{meal.selectedOption.substitution_details[0].replacement_unit} de {meal.selectedOption.substitution_details[0].replacement_food_name}
+                        {meal.selectedOption.substitution_details.map((item, index) => (
+                          <p key={`${item.replacement_food_id || item.original_food_id || index}`}>
+                            Cambio: {formatSubstitutionNote(item)}
+                          </p>
+                        ))}
                       </div>
                     ) : null}
 
