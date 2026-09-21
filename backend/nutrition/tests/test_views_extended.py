@@ -537,6 +537,164 @@ class TestDailyMealSelections:
         log = MealLog.objects.get(user=user, date='2026-06-02', meal_type='lunch')
         assert log.substitution_details == details
 
+    def test_post_get_persists_two_substitutions(self, auth_client, user, recipe):
+        details = [
+            {
+                'ingredient_id': 'ing-chicken',
+                'original_food_name': 'Contramuslo de pollo',
+                'original_quantity': 180,
+                'original_unit': 'g',
+                'replacement_food_name': 'Carne picada de ternera',
+                'replacement_quantity': 160,
+                'replacement_unit': 'g',
+                'target_calories': 220,
+            },
+            {
+                'ingredient_id': 'ing-tomato',
+                'original_food_name': 'Tomate cherry Bowl',
+                'original_quantity': 80,
+                'original_unit': 'g',
+                'replacement_food_name': 'Maíz dulce Bowl',
+                'replacement_quantity': 70,
+                'replacement_unit': 'g',
+                'target_calories': 60,
+            },
+        ]
+        payload = {
+            'date': '2026-06-03',
+            'meal_type': 'lunch',
+            'recipe_id': str(recipe.id),
+            'completed': False,
+            'substitution_details': details,
+        }
+        created = auth_client.post('/api/nutrition/daily-meal-selections/', payload, format='json')
+        assert created.status_code in [status.HTTP_200_OK, status.HTTP_201_CREATED]
+        assert created.data['substitution_details'] == details
+
+        listed = auth_client.get('/api/nutrition/daily-meal-selections/?date=2026-06-03')
+        assert listed.status_code == status.HTTP_200_OK
+        rows = listed.data.get('selections') or []
+        assert rows[0]['substitution_details'] == details
+        log = MealLog.objects.get(user=user, date='2026-06-03', meal_type='lunch')
+        assert log.substitution_details == details
+
+    def test_post_get_persists_three_substitutions(self, auth_client, user, recipe):
+        details = [
+            {'ingredient_id': 'a', 'original_food_name': 'A', 'replacement_food_name': 'B'},
+            {'ingredient_id': 'c', 'original_food_name': 'C', 'replacement_food_name': 'D'},
+            {'ingredient_id': 'e', 'original_food_name': 'E', 'replacement_food_name': 'F'},
+        ]
+        payload = {
+            'date': '2026-06-04',
+            'meal_type': 'lunch',
+            'recipe_id': str(recipe.id),
+            'completed': False,
+            'substitution_details': details,
+        }
+        created = auth_client.post('/api/nutrition/daily-meal-selections/', payload, format='json')
+        assert created.status_code in [status.HTTP_200_OK, status.HTTP_201_CREATED]
+        listed = auth_client.get('/api/nutrition/daily-meal-selections/?date=2026-06-04')
+        assert listed.data['selections'][0]['substitution_details'] == details
+        log = MealLog.objects.get(user=user, date='2026-06-04', meal_type='lunch')
+        assert log.substitution_details == details
+
+    def test_updating_one_substitution_keeps_the_other(self, auth_client, user, recipe):
+        original = [
+            {'ingredient_id': 'ing-chicken', 'original_food_name': 'A', 'replacement_food_name': 'B'},
+            {'ingredient_id': 'ing-tomato', 'original_food_name': 'C', 'replacement_food_name': 'D'},
+        ]
+        updated = [
+            {'ingredient_id': 'ing-chicken', 'original_food_name': 'A', 'replacement_food_name': 'X'},
+            {'ingredient_id': 'ing-tomato', 'original_food_name': 'C', 'replacement_food_name': 'D'},
+        ]
+        payload = {
+            'date': '2026-06-05',
+            'meal_type': 'lunch',
+            'recipe_id': str(recipe.id),
+            'completed': False,
+            'substitution_details': original,
+        }
+        first = auth_client.post('/api/nutrition/daily-meal-selections/', payload, format='json')
+        assert first.status_code in [status.HTTP_200_OK, status.HTTP_201_CREATED]
+        second = auth_client.post(
+            '/api/nutrition/daily-meal-selections/',
+            {**payload, 'substitution_details': updated},
+            format='json',
+        )
+        assert second.status_code in [status.HTTP_200_OK, status.HTTP_201_CREATED]
+        listed = auth_client.get('/api/nutrition/daily-meal-selections/?date=2026-06-05')
+        assert listed.data['selections'][0]['substitution_details'] == updated
+        log = MealLog.objects.get(user=user, date='2026-06-05', meal_type='lunch')
+        assert log.substitution_details == updated
+
+    def test_substitutions_do_not_affect_another_meal(self, auth_client, user, recipe):
+        lunch_details = [
+            {'ingredient_id': 'ing-chicken', 'original_food_name': 'A', 'replacement_food_name': 'B'},
+        ]
+        dinner_details = []
+        auth_client.post(
+            '/api/nutrition/daily-meal-selections/',
+            {
+                'date': '2026-06-06',
+                'meal_type': 'lunch',
+                'recipe_id': str(recipe.id),
+                'completed': False,
+                'substitution_details': lunch_details,
+            },
+            format='json',
+        )
+        auth_client.post(
+            '/api/nutrition/daily-meal-selections/',
+            {
+                'date': '2026-06-06',
+                'meal_type': 'dinner',
+                'recipe_id': str(recipe.id),
+                'completed': False,
+                'substitution_details': dinner_details,
+            },
+            format='json',
+        )
+        listed = auth_client.get('/api/nutrition/daily-meal-selections/?date=2026-06-06')
+        by_type = {row['meal_type']: row['substitution_details'] for row in listed.data['selections']}
+        assert by_type['lunch'] == lunch_details
+        assert by_type['dinner'] == dinner_details
+        assert MealLog.objects.get(user=user, date='2026-06-06', meal_type='lunch').substitution_details == lunch_details
+        assert MealLog.objects.get(user=user, date='2026-06-06', meal_type='dinner').substitution_details == dinner_details
+
+    def test_substitutions_do_not_affect_another_day(self, auth_client, user, recipe):
+        monday = [
+            {'ingredient_id': 'ing-chicken', 'original_food_name': 'A', 'replacement_food_name': 'B'},
+            {'ingredient_id': 'ing-tomato', 'original_food_name': 'C', 'replacement_food_name': 'D'},
+        ]
+        auth_client.post(
+            '/api/nutrition/daily-meal-selections/',
+            {
+                'date': '2026-06-08',
+                'meal_type': 'lunch',
+                'recipe_id': str(recipe.id),
+                'completed': False,
+                'substitution_details': monday,
+            },
+            format='json',
+        )
+        auth_client.post(
+            '/api/nutrition/daily-meal-selections/',
+            {
+                'date': '2026-06-09',
+                'meal_type': 'lunch',
+                'recipe_id': str(recipe.id),
+                'completed': False,
+                'substitution_details': [],
+            },
+            format='json',
+        )
+        monday_list = auth_client.get('/api/nutrition/daily-meal-selections/?date=2026-06-08')
+        tuesday_list = auth_client.get('/api/nutrition/daily-meal-selections/?date=2026-06-09')
+        assert monday_list.data['selections'][0]['substitution_details'] == monday
+        assert tuesday_list.data['selections'][0]['substitution_details'] == []
+        assert MealLog.objects.get(user=user, date='2026-06-08', meal_type='lunch').substitution_details == monday
+        assert MealLog.objects.get(user=user, date='2026-06-09', meal_type='lunch').substitution_details == []
+
 
 @pytest.mark.django_db
 class TestMealExclusionsManagement:
