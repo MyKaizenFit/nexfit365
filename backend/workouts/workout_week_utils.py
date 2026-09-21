@@ -179,7 +179,14 @@ def copy_program_weeks(program, *, source_week: int, target_weeks: Iterable[int]
         )
         if (program.duration_weeks or 1) < max_week:
             program.duration_weeks = max_week
-            program.save(update_fields=["duration_weeks", "updated_at"])
+            update_fields = ["duration_weeks", "updated_at"]
+            from .program_lifecycle import expected_program_end_date
+
+            expected_end = expected_program_end_date(program)
+            if expected_end and program.end_date != expected_end:
+                program.end_date = expected_end
+                update_fields.append("end_date")
+            program.save(update_fields=update_fields)
 
     return {
         "source_week": source_week,

@@ -196,3 +196,41 @@ class TestFillMissingProgramWeeks:
         program_with_weeks.refresh_from_db()
         assert is_multi_week_program(program_with_weeks)
         assert get_scheduled_week_numbers(program_with_weeks) == [1, 2]
+
+
+@pytest.mark.django_db
+def test_copy_program_weeks_extends_stale_end_date(regular_user, exercise):
+    from datetime import date
+
+    program = WorkoutProgram.objects.create(
+        name="Copia extiende fin",
+        user=regular_user,
+        difficulty="beginner",
+        goal="general_fitness",
+        days_per_week=3,
+        duration_weeks=1,
+        start_date=date(2026, 8, 17),
+        end_date=date(2026, 8, 24),
+        is_active=True,
+    )
+    WorkoutDay.objects.create(
+        program=program,
+        name="Pierna",
+        day_number=1,
+        day_of_week="monday",
+        order_index=1,
+    )
+    WorkoutDayExercise.objects.create(
+        workout_day=program.days.get(day_number=1),
+        exercise=exercise,
+        sets=3,
+        reps="10",
+        order_index=1,
+    )
+
+    copy_program_weeks(program, source_week=1, target_weeks=[2])
+    program.refresh_from_db()
+
+    assert program.duration_weeks == 2
+    assert program.end_date == date(2026, 8, 31)
+    assert program.start_date == date(2026, 8, 17)

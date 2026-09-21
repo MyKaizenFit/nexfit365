@@ -20,7 +20,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         dry_run = options["dry_run"]
-        today = timezone.now().date()
+        today = timezone.localdate()
 
         programs = (
             WorkoutProgram.objects.filter(is_active=True, user_id__isnull=False)

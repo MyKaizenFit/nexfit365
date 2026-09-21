@@ -77,6 +77,16 @@ export function planDurationWeeksFromPlan(plan: WorkoutPlanLike | null | undefin
   return fromDays
 }
 
+/** end_date derivado: start_date + duración efectiva en semanas. */
+export function expectedProgramEndDate(plan: WorkoutPlanLike | null | undefined): Date | null {
+  if (!plan?.start_date) return null
+  const duration = planDurationWeeksFromPlan(plan)
+  if (duration <= 0) return null
+  const start = parseDateOnly(plan.start_date)
+  start.setDate(start.getDate() + duration * 7)
+  return start
+}
+
 export function isMultiWeekPlan(plan: WorkoutPlanLike | null | undefined): boolean {
   if (!plan?.days?.length) return false
   return plan.days.some((day) => (day.day_number || 0) > 7)
@@ -161,10 +171,12 @@ export function getProgramLifecycleStatus(
   const ref = new Date(referenceDate)
   ref.setHours(0, 0, 0, 0)
 
-  if (plan.end_date) {
-    const end = parseDateOnly(plan.end_date)
-    if (ref > end) return "completed"
+  const expectedEnd = expectedProgramEndDate(plan)
+  let end: Date | null = plan.end_date ? parseDateOnly(plan.end_date) : null
+  if (expectedEnd && (!end || expectedEnd > end)) {
+    end = expectedEnd
   }
+  if (end && ref > end) return "completed"
 
   if (!isMultiWeekPlan(plan)) {
     return "active"

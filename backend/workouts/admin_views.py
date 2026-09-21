@@ -306,12 +306,18 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
         if hasattr(program, '_prefetched_objects_cache'):
             program._prefetched_objects_cache = {}
 
-        from .program_lifecycle import program_duration_weeks_from_plan
+        from .program_lifecycle import expected_program_end_date, program_duration_weeks_from_plan
 
         synced_duration = program_duration_weeks_from_plan(program)
         if (program.duration_weeks or 0) != synced_duration:
             program.duration_weeks = synced_duration
-            program.save(update_fields=['duration_weeks', 'updated_at'])
+            update_fields = ['duration_weeks', 'updated_at']
+            if program.user_id and program.start_date:
+                expected_end = expected_program_end_date(program, duration_weeks=synced_duration)
+                if expected_end and program.end_date != expected_end:
+                    program.end_date = expected_end
+                    update_fields.append('end_date')
+            program.save(update_fields=update_fields)
 
     @staticmethod
     def _normalize_date_like_workout_text(value):

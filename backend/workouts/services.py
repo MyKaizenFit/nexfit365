@@ -17,12 +17,16 @@ from .models import (
 
 def reset_weekly_workout_plan_if_needed(program: WorkoutProgram) -> WorkoutProgram:
     """
-    Inicializa start_date si falta y sincroniza duration_weeks con el contenido del plan.
+    Inicializa start_date si falta y sincroniza duration_weeks/end_date con el plan.
+
+    end_date es derivado (start_date + duración efectiva). Si duration_weeks
+    crece (p. ej. 5→8) y se deja un end_date corto, el ciclo se marca
+    completado en plena semana 6/8. Recalcular también cuando ya hay valor.
     """
     if not program or not program.is_active:
         return program
 
-    from .program_lifecycle import program_duration_weeks_from_plan
+    from .program_lifecycle import expected_program_end_date, program_duration_weeks_from_plan
 
     today = timezone.localdate()
     update_fields: list[str] = []
@@ -36,8 +40,9 @@ def reset_weekly_workout_plan_if_needed(program: WorkoutProgram) -> WorkoutProgr
         program.duration_weeks = synced_duration
         update_fields.append("duration_weeks")
 
-    if program.start_date and not program.end_date and synced_duration > 0:
-        program.end_date = program.start_date + timedelta(weeks=synced_duration)
+    expected_end = expected_program_end_date(program, duration_weeks=synced_duration)
+    if expected_end and program.end_date != expected_end:
+        program.end_date = expected_end
         update_fields.append("end_date")
 
     if update_fields:
