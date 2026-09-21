@@ -21,7 +21,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         force = options['force']
-        today = timezone.now().date()
+        today = timezone.localdate()
         
         # Se mantiene la opción por compatibilidad con automatizaciones existentes.
         if today.weekday() != 0 and not force:

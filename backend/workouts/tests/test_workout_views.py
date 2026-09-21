@@ -260,6 +260,33 @@ class TestWorkoutProgramViewSet:
         assert response.status_code == status.HTTP_200_OK
         assert response.data['program'] is None
 
+    def test_my_active_program_keeps_stale_end_date_plan_active(self, auth_client, user):
+        from datetime import date, datetime, timezone as dt_timezone
+        from freezegun import freeze_time
+
+        program = WorkoutProgram.objects.create(
+            name='Plan 8 semanas',
+            user=user,
+            is_active=True,
+            is_template=False,
+            duration_weeks=8,
+            start_date=date(2026, 8, 17),
+            end_date=date(2026, 9, 21),
+        )
+        WorkoutDay.objects.create(program=program, day_number=1, name='Día 1', order_index=1)
+        WorkoutDay.objects.create(program=program, day_number=56, name='Día 56', order_index=56)
+
+        with freeze_time(datetime(2026, 9, 22, 10, 0, tzinfo=dt_timezone.utc)):
+            response = auth_client.get('/api/programs/my_active_program/')
+
+        assert response.status_code == status.HTTP_200_OK
+        payload = response.data['program']
+        assert payload is not None
+        assert payload['start_date'] == '2026-08-17'
+        assert payload['end_date'] == '2026-10-12'
+        assert payload['duration_weeks'] == 8
+        assert payload['is_active'] is True
+
     def test_templates_action(self, auth_client, template_program):
         response = auth_client.get('/api/programs/templates/')
         assert response.status_code == status.HTTP_200_OK

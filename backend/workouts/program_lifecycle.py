@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import date, timedelta
 from typing import Literal
 
+from django.utils import timezone
+
 from .workout_week_utils import week_number_from_day_number
 
 ProgramLifecycleStatus = Literal["not_started", "active", "completed"]
@@ -12,6 +14,32 @@ ProgramLifecycleStatus = Literal["not_started", "active", "completed"]
 
 def _monday_of(value: date) -> date:
     return value - timedelta(days=value.weekday())
+
+
+def _business_date(reference: date | None = None) -> date:
+    """Calendario de negocio: Europe/Madrid, no la fecha UTC del sistema."""
+    return reference if reference is not None else timezone.localdate()
+
+
+def expected_program_end_date(program, *, start_date=None, duration_weeks=None) -> date | None:
+    """end_date derivado: start_date + duration efectiva en semanas.
+
+    En planes de usuario activos end_date no es una fecha libre: se recalcula
+    desde start_date y program_duration_weeks_from_plan(). Un formulario admin
+    legado ofrece end_date opcional, pero el API user-workout-plans no existe
+    y las asignaciones reales siempre derivan esta fecha.
+    """
+    start = start_date if start_date is not None else getattr(program, "start_date", None)
+    if not start:
+        return None
+    duration = (
+        duration_weeks
+        if duration_weeks is not None
+        else program_duration_weeks_from_plan(program)
+    )
+    if duration <= 0:
+        return None
+    return start + timedelta(weeks=duration)
 
 
 def program_duration_weeks_from_plan(program) -> int:
@@ -36,7 +64,7 @@ def is_multi_week_plan(program) -> bool:
 
 
 def program_week_for_date(program, reference: date | None = None) -> int:
-    reference = reference or date.today()
+    reference = _business_date(reference)
     if not is_multi_week_plan(program):
         return 1
     if not program.start_date:
@@ -56,12 +84,16 @@ def program_week_for_date(program, reference: date | None = None) -> int:
 
 
 def get_program_lifecycle_status(program, reference: date | None = None) -> ProgramLifecycleStatus:
-    reference = reference or date.today()
+    reference = _business_date(reference)
     days = list(program.days.all()) if hasattr(program, "days") else []
     if not days:
         return "not_started"
 
-    if program.end_date and reference > program.end_date:
+    expected_end = expected_program_end_date(program)
+    effective_end = program.end_date
+    if expected_end and (effective_end is None or effective_end < expected_end):
+        effective_end = expected_end
+    if effective_end and reference > effective_end:
         return "completed"
 
     if not is_multi_week_plan(program):

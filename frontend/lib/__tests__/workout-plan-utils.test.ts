@@ -14,6 +14,7 @@ import {
   isMultiWeekPlan,
   isProgramWeekInRange,
   planDurationWeeksFromPlan,
+  expectedProgramEndDate,
   getTodaysPlanDay,
   isPlanTrainingWeekday,
   weekNumberFromDayNumber,
@@ -270,6 +271,48 @@ describe('multi-week plan resolution', () => {
     expect(getPlanDayForWeekday(partiallyScheduledPlan, 2, new Date('2026-06-30'))?.name).toBe('W1 Tue')
     expect(getPlanTrainingWeekdays(partiallyScheduledPlan, new Date('2026-06-16'))).toEqual([1, 2, 4, 5])
     expect(getPlanTrainingWeekdays(partiallyScheduledPlan, new Date('2026-06-30'))).toEqual([1, 2, 4, 5])
+  })
+
+  it('does not treat a stale short end_date as completed mid-block', () => {
+    const stalePlan: WorkoutPlanLike = {
+      start_date: '2026-08-17',
+      duration_weeks: 8,
+      end_date: '2026-09-21',
+      days: [
+        { day_number: 1, name: 'W1 Mon', is_rest_day: false },
+        { day_number: 37, name: 'W6 Tue', is_rest_day: false },
+        { day_number: 56, name: 'W8 Sun', is_rest_day: true },
+      ],
+    }
+    const reference = new Date('2026-09-22T00:00:00')
+
+    const expectedEnd = expectedProgramEndDate(stalePlan)
+    expect(expectedEnd).not.toBeNull()
+    expect(expectedEnd?.getFullYear()).toBe(2026)
+    expect(expectedEnd?.getMonth()).toBe(9)
+    expect(expectedEnd?.getDate()).toBe(12)
+    expect(getProgramWeekForDate(stalePlan, reference)).toBe(6)
+    expect(getProgramLifecycleStatus(stalePlan, reference)).toBe('active')
+    expect(isProgramCompleted(stalePlan, reference)).toBe(false)
+    expect(isProgramWeekInRange(stalePlan, reference)).toBe(true)
+    expect(getPlanDayForWeekday(stalePlan, 2, reference)?.name).toBe('W6 Tue')
+    expect(getPlanTrainingWeekdays(stalePlan, reference)).toEqual([2])
+  })
+
+  it('keeps week 8 active until the derived end date', () => {
+    const plan: WorkoutPlanLike = {
+      start_date: '2026-08-17',
+      duration_weeks: 8,
+      end_date: '2026-10-12',
+      days: [
+        { day_number: 1, name: 'W1 Mon', is_rest_day: false },
+        { day_number: 50, name: 'W8 Mon', is_rest_day: false },
+      ],
+    }
+    expect(getProgramLifecycleStatus(plan, new Date('2026-10-05T00:00:00'))).toBe('active')
+    expect(getProgramWeekForDate(plan, new Date('2026-10-05T00:00:00'))).toBe(8)
+    expect(getProgramLifecycleStatus(plan, new Date('2026-10-12T00:00:00'))).toBe('completed')
+    expect(getPlanDayForWeekday(plan, 1, new Date('2026-10-12T00:00:00'))).toBeNull()
   })
 })
 
