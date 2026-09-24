@@ -30,6 +30,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 // Importar AdminRouteGuard de forma eager para proteger la ruta
 import { AdminRouteGuard } from "@/components/admin/admin-route-guard"
+import { TrainingPlansErrorBoundary } from "./components/training-plans-error-boundary"
 
 // Lazy loading de componentes pesados para code splitting
 const NewUserForm = lazy(() => import("./components/new-user-form").then(module => ({ default: module.NewUserForm })))
@@ -1062,7 +1063,9 @@ function AdminPageContent() {
           ) : activeSection === 'exercises' ? (
             <ExerciseManagement />
           ) : activeSection === 'workout-plans' ? (
-            <WorkoutPlanManagement />
+            <TrainingPlansErrorBoundary onLeave={() => setActiveSection('dashboard')}>
+              <WorkoutPlanManagement />
+            </TrainingPlansErrorBoundary>
           ) : activeSection === 'foods' ? (
             <FoodManagement />
           ) : activeSection === 'equivalences' ? (
