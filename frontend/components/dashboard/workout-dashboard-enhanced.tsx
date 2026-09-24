@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import {
   Dumbbell, Play, Check, Clock, Target, Calendar,
   TrendingUp, Award, Timer, BarChart3,
@@ -25,7 +25,9 @@ import { todayLocalDate } from "@/lib/local-date"
 import { type WorkoutDay } from "@/lib/workout-service"
 import { ActiveWorkoutSession } from "@/components/active-workout-session"
 import { ExerciseVideoPlayer } from "@/components/exercise-video-player"
+import { WorkoutErrorBoundary, WorkoutSessionFallback } from '@/components/workout-error-boundary'
 import { ExerciseCoverThumbnail } from "@/components/exercise-cover-thumbnail"
+import { safeJsonParse } from '@/lib/safe-json'
 import { WorkoutHistoryEnhanced } from "./workout-history-enhanced"
 import { RestTimer } from "@/components/rest-timer"
 import { WorkoutsSectionSkeleton } from "@/components/dashboard/dashboard-skeletons"
@@ -338,6 +340,7 @@ export function WorkoutDashboardEnhanced() {
   const isProgramFinished = programLifecycleStatus === "completed"
 
   const [isWorkoutDialogOpen, setIsWorkoutDialogOpen] = useState(false)
+  const [workoutSessionKey, setWorkoutSessionKey] = useState(0)
   const [selectedDay, setSelectedDay] = useState<WorkoutDay | null>(null)
   const [selectedDraftLog, setSelectedDraftLog] = useState<any | null>(null)
   const [workoutForm, setWorkoutForm] = useState({
@@ -350,6 +353,11 @@ export function WorkoutDashboardEnhanced() {
   const [workoutStartTime, setWorkoutStartTime] = useState<Date | null>(null)
   // Estado para verificar si el entrenamiento de hoy ya está completado
   const [todayWorkoutCompleted, setTodayWorkoutCompleted] = useState<Record<string, boolean>>({})
+
+  // Race condition protection
+  const workoutRequestVersionRef = useRef(0)
+  const workoutDraftAbortControllerRef = useRef<AbortController | null>(null)
+  const [isWorkoutLoading, setIsWorkoutLoading] = useState(false)
 
   // Obtener entrenamiento de hoy
   const todaysWorkout = getTodaysWorkout()
@@ -411,7 +419,11 @@ export function WorkoutDashboardEnhanced() {
           const text = await response.text()
           if (text) {
             try {
-              const data = JSON.parse(text)
+              const data = safeJsonParse<{ results: Record<string, { is_completed?: boolean }> }>(
+                text,
+                { results: {} },
+                'check_today_batch'
+              )
               const results = data.results || {}
               for (const dayId of pendingServerDayIds) {
                 completed[dayId] = results[dayId]?.is_completed || false
@@ -576,7 +588,7 @@ export function WorkoutDashboardEnhanced() {
       const saved = localStorage.getItem(saveKey)
 
       if (saved) {
-        const savedExercises = JSON.parse(saved)
+        const savedExercises = safeJsonParse(saved, [], 'getCompletedExercisesForDay')
         savedExercises.forEach((id: string) => completedSet.add(String(id)))
       }
 
@@ -660,25 +672,57 @@ export function WorkoutDashboardEnhanced() {
 
   // Iniciar entrenamiento
   const handleStartWorkout = async (day: any) => {
-    const dayId = day.id || day.day_number || 'unknown'
+    if (!day?.id) {
+      return
+    }
+
+    const dayId = String(day.id)
     const isCompletedToday = todayWorkoutCompleted[dayId] === true
+
+    // Incrementar versión de request para ignorar respuestas obsoletas
+    const requestVersion = ++workoutRequestVersionRef.current
 
     setSelectedDay(day)
     setSelectedDraftLog(null)
+    setIsWorkoutLoading(true)
+
+    // Cancelar request anterior si existe
+    if (workoutDraftAbortControllerRef.current) {
+      workoutDraftAbortControllerRef.current.abort()
+    }
+    const abortController = new AbortController()
+    workoutDraftAbortControllerRef.current = abortController
 
     try {
-      if (day?.id) {
-        const draft = await getWorkoutDraft(String(day.id), isCompletedToday)
-        setSelectedDraftLog(draft)
+      const draft = await getWorkoutDraft(dayId, isCompletedToday, abortController.signal)
+
+      // Ignorar si esta request ya no es la más reciente
+      if (requestVersion !== workoutRequestVersionRef.current) {
+        return
       }
-    } catch {
+
+      setSelectedDraftLog(draft)
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        return // Request cancelado intencionalmente
+      }
+      if (requestVersion !== workoutRequestVersionRef.current) {
+        return
+      }
       setSelectedDraftLog(null)
+    } finally {
+      if (workoutDraftAbortControllerRef.current === abortController) {
+        workoutDraftAbortControllerRef.current = null
+      }
+      if (requestVersion === workoutRequestVersionRef.current) {
+        setIsWorkoutLoading(false)
+      }
     }
 
     // Cargar ejercicios completados guardados desde localStorage
     const savedKey = `workout_completed_${dayId}_${todayLocalDate()}`
     const saved = localStorage.getItem(savedKey)
-    const savedExercises = saved ? JSON.parse(saved) : []
+    const savedExercises = saved ? safeJsonParse(saved, [], 'handleStartWorkout') : []
 
     setCompletedExercises(new Set(savedExercises))
     setWorkoutStartTime(new Date()) // Guardar tiempo de inicio
@@ -1678,20 +1722,36 @@ export function WorkoutDashboardEnhanced() {
 
       {/* Nuevo componente de entrenamiento activo */}
       {selectedDay && (
-        <ActiveWorkoutSession
-          workoutDay={selectedDay}
-          isOpen={isWorkoutDialogOpen}
-          onClose={() => {
-            setIsWorkoutDialogOpen(false)
-            setSelectedDay(null)
-            setSelectedDraftLog(null)
-          }}
-          initialDraftLog={selectedDraftLog}
-          workoutLogs={workoutLogs}
-          onSaveProgress={async (data) => {
-            if (!selectedDay?.id) return
-            await saveWorkoutProgress(String(selectedDay.id), data)
-          }}
+        <WorkoutErrorBoundary
+          key={workoutSessionKey}
+          fallback={
+            <WorkoutSessionFallback
+              onRetry={() => {
+                setWorkoutSessionKey((key) => key + 1)
+              }}
+              onBack={() => {
+                setWorkoutSessionKey((key) => key + 1)
+                setIsWorkoutDialogOpen(false)
+                setSelectedDay(null)
+                setSelectedDraftLog(null)
+              }}
+            />
+          }
+        >
+          <ActiveWorkoutSession
+            workoutDay={selectedDay}
+            isOpen={isWorkoutDialogOpen}
+            onClose={() => {
+              setIsWorkoutDialogOpen(false)
+              setSelectedDay(null)
+              setSelectedDraftLog(null)
+            }}
+            initialDraftLog={selectedDraftLog}
+            workoutLogs={workoutLogs}
+            onSaveProgress={async (data) => {
+              if (!selectedDay?.id) return
+              await saveWorkoutProgress(String(selectedDay.id), data)
+            }}
           onComplete={async (data) => {
             if (!selectedDay) return
 
@@ -1835,6 +1895,7 @@ export function WorkoutDashboardEnhanced() {
             }
           }}
         />
+      </WorkoutErrorBoundary>
       )}
     </div>
   )

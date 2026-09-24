@@ -467,6 +467,38 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
 
         return Response({'log': WorkoutLogSerializer(log).data if log else None})
 
+    @action(detail=False, methods=['get'], url_path='draft_for_day')
+    def draft_for_day(self, request):
+        """Draft para un workout_day específico, sin filtrar por la fecha de hoy."""
+        workout_day_id = request.query_params.get('workout_day')
+        if not workout_day_id:
+            return Response({'error': 'workout_day es requerido'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            workout_day = WorkoutDay.objects.select_related('program').get(id=workout_day_id)
+        except WorkoutDay.DoesNotExist:
+            return Response({'error': 'Día de entrenamiento no encontrado'}, status=status.HTTP_400_BAD_REQUEST)
+
+        program = workout_day.program
+        if program is None or program.user_id != request.user.id:
+            return Response(
+                {'detail': 'No tienes permiso para acceder a este día de entrenamiento.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        include_completed = self.request.query_params.get('include_completed') in {'1', 'true', 'True', 'yes'}
+
+        queryset = WorkoutLog.objects.filter(
+            user=request.user,
+            workout_day=workout_day,
+        )
+        if not include_completed:
+            queryset = queryset.filter(completed=False)
+
+        log = queryset.order_by('-completed', '-updated_at').first()
+
+        return Response({'log': WorkoutLogSerializer(log).data if log else None})
+
     @action(detail=False, methods=['post'], url_path='upsert_today')
     def upsert_today(self, request):
         """Crea o actualiza el log de hoy, usado como autoguardado y cierre final."""

@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/auth-context'
 import { buildApiUrl, authenticatedFetch } from '@/lib/api'
 import { todayLocalDate } from '@/lib/local-date'
 import { getTodaysPlanDay } from '@/lib/workout-plan-utils'
+import { safeJsonParse } from '@/lib/safe-json'
 
 const getErrorMessage = (error: unknown): string => {
   if (error instanceof Error) return error.message
@@ -459,7 +460,7 @@ export function useWorkouts() {
           }
 
           // Intentar parsear el JSON
-          data = JSON.parse(cleanedText)
+          data = safeJsonParse(cleanedText, {}, 'createWorkoutLog')
         } catch (jsonError) {
           // Si falla el parseo JSON, loguear el error completo
 
@@ -675,8 +676,16 @@ export function useWorkouts() {
     return data.log || data
   }
 
-  const getWorkoutDraft = async (workoutDayId: string, includeCompleted = false) => {
+  const getWorkoutDraft = async (
+    workoutDayId: string,
+    includeCompleted = false,
+    signal?: AbortSignal
+  ) => {
     if (!isAuthenticated) {
+      return null
+    }
+
+    if (!workoutDayId) {
       return null
     }
 
@@ -687,7 +696,9 @@ export function useWorkouts() {
       params.set('include_completed', 'true')
     }
 
-    const response = await authenticatedFetch(`workout-logs/today_draft/?${params.toString()}`)
+    const response = await authenticatedFetch(`workout-logs/draft_for_day/?${params.toString()}`, {
+      signal,
+    })
     const data = await response.json().catch(() => ({}))
     if (!response.ok) {
       return null

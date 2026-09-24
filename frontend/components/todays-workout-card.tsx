@@ -20,6 +20,7 @@ import { ExerciseVideoPlayer } from './exercise-video-player'
 import { getExerciseCoverUrl } from '@/lib/exercise-media'
 import { todayLocalDate } from '@/lib/local-date'
 import { ActiveWorkoutSession } from './active-workout-session'
+import { safeJsonParse } from '@/lib/safe-json'
 import { toast } from '@/hooks/use-toast'
 import { useWorkouts } from '@/hooks/use-workouts'
 import { useUserProfile } from '@/hooks/use-user-profile'
@@ -74,7 +75,7 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
         setSelectedSubstitutes({})
         return
       }
-      const parsed = JSON.parse(saved)
+      const parsed = safeJsonParse(saved, {}, 'todays-workout-card')
       setSelectedSubstitutes(parsed && typeof parsed === 'object' ? parsed : {})
     } catch {
       setSelectedSubstitutes({})

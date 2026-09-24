@@ -19,6 +19,7 @@ import { ExerciseVideoPlayer } from './exercise-video-player'
 import { ExerciseCoverThumbnail } from './exercise-cover-thumbnail'
 import { cn } from '@/lib/utils'
 import { formatLocalDate, todayLocalDate } from '@/lib/local-date'
+import { safeJsonParse } from '@/lib/safe-json'
 
 // =============================================
 // INPUT NUMÉRICO PARA MÓVIL
@@ -362,7 +363,19 @@ export function ActiveWorkoutSession({
     try {
       const saved = localStorage.getItem(workoutStorageKey)
       if (saved) {
-        const state = JSON.parse(saved)
+        const state = safeJsonParse<{
+          isStarted: boolean
+          isPaused: boolean
+          elapsedSeconds: number
+          workoutStartTime: number | null
+          completedExercises: string[]
+          exerciseSets: Record<string, any>
+          rating: number
+          notes: string
+          savedAt: number
+          contentSavedAt?: number
+        } | null>(saved, null, 'loadWorkoutState')
+        if (!state) return null
         // Solo cargar si es del mismo día
         const savedDate = formatLocalDate(new Date(state.savedAt))
         const today = todayLocalDate()
@@ -436,7 +449,7 @@ export function ActiveWorkoutSession({
     try {
       const saved = localStorage.getItem(substituteStorageKey)
       if (saved) {
-        const parsed = JSON.parse(saved)
+        const parsed = safeJsonParse(saved, {}, 'substituteStorageKey')
         setSubstituteSelections({
           ...(initialSubstituteSelections || {}),
           ...(parsed && typeof parsed === 'object' ? parsed : {}),
