@@ -167,16 +167,15 @@ class WorkoutProgramViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):
             return WorkoutProgram.objects.none()
+        from .query_utils import program_days_prefetch
+
         user = self.request.user
         # Mostrar programas del sistema y los propios del usuario
         return WorkoutProgram.objects.filter(
             is_active=True
         ).filter(
             models.Q(is_system=True) | models.Q(user=user)
-        ).prefetch_related(
-            'days__exercises__exercise',
-            'days__exercises__exercise__substitutions__substitute',
-        )
+        ).prefetch_related(program_days_prefetch())
     
     def get_serializer_class(self):
         if self.action == 'list':
@@ -227,8 +226,18 @@ class WorkoutProgramViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def my_active_program(self, request):
-        """Programa activo del usuario actual"""
-        from .services import reset_weekly_workout_plan_if_needed, rollover_program_cycle_if_completed
+        """Programa activo del usuario actual (días de la semana pedida o actual)."""
+        from .services import (
+            prefetch_workout_program_with_days,
+            reset_weekly_workout_plan_if_needed,
+            rollover_program_cycle_if_completed,
+        )
+        from .query_utils import parse_week_param, resolve_program_current_week
+
+        try:
+            week_param = parse_week_param(request.query_params.get('week'))
+        except ValueError as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             active_program_ids = list(
@@ -244,17 +253,19 @@ class WorkoutProgramViewSet(viewsets.ModelViewSet):
 
             program = WorkoutProgram.objects.filter(
                 user=request.user, is_active=True
-            ).prefetch_related(
-                'days__exercises__exercise',
-                'days__exercises__exercise__substitutions__substitute',
             ).order_by('-updated_at', '-created_at').first()
 
             if program:
                 # Inicializar start_date si falta, sincronizar duración y reiniciar ciclo si terminó.
                 program = reset_weekly_workout_plan_if_needed(program)
                 program = rollover_program_cycle_if_completed(program)
+                loaded_week = week_param or resolve_program_current_week(program)
+                program = prefetch_workout_program_with_days(program, week=loaded_week) or program
                 serializer = WorkoutProgramSerializer(program)
-                return Response({'program': serializer.data})
+                payload = dict(serializer.data)
+                payload['loaded_week'] = loaded_week
+                payload['days_count'] = WorkoutDay.objects.filter(program_id=program.pk).count()
+                return Response({'program': payload})
             return Response({'program': None})
         except DatabaseError as exc:
             logger.error("Fallback WorkoutProgramViewSet.my_active_program por error de BD: %s", exc)

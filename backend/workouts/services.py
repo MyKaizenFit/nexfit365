@@ -629,7 +629,9 @@ class DefaultWorkoutAssignmentService:
         )
 
         template_days = list(
-            default_program.days.all().order_by("day_number", "order_index")
+            default_program.days.all()
+            .prefetch_related("exercises")
+            .order_by("day_number", "order_index")
         )
         explicit_training_days = normalize_training_days(
             getattr(self.user, "training_days", None)
@@ -683,15 +685,18 @@ def build_assigned_program_tags(template_program: WorkoutProgram) -> List[str]:
     return [source_template_tag(template_program.id)]
 
 
-def prefetch_workout_program_with_days(program: Optional[WorkoutProgram]) -> Optional[WorkoutProgram]:
+def prefetch_workout_program_with_days(
+    program: Optional[WorkoutProgram],
+    *,
+    week: int | None = None,
+) -> Optional[WorkoutProgram]:
     if not program:
         return None
+    from .query_utils import program_days_prefetch
+
     return (
         WorkoutProgram.objects.filter(pk=program.pk)
-        .prefetch_related(
-            "days__exercises__exercise",
-            "days__exercises__exercise__substitutions__substitute",
-        )
+        .prefetch_related(program_days_prefetch(week=week))
         .first()
     )
 

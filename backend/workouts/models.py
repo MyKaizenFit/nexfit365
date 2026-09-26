@@ -254,10 +254,24 @@ class Exercise(TimeStampedModel):
         return None
 
     def get_substitutes(self):
-        """Retorna ejercicios sustitutos ordenados por prioridad."""
+        """Retorna ejercicios sustitutos ordenados por prioridad.
+
+        Si `substitutions` ya está en el prefetch cache, no vuelve a consultar BD
+        (un `.order_by()` extra invalidaría el prefetch y provocaría N+1).
+        """
+        cache = getattr(self, "_prefetched_objects_cache", None) or {}
+        if "substitutions" in cache:
+            relations = sorted(
+                cache["substitutions"],
+                key=lambda relation: (relation.priority, relation.created_at),
+            )
+            return [relation.substitute for relation in relations]
+
         return [
             relation.substitute
-            for relation in self.substitutions.all().select_related("substitute").order_by("priority", "created_at")
+            for relation in self.substitutions.all()
+            .select_related("substitute")
+            .order_by("priority", "created_at")
         ]
 
 

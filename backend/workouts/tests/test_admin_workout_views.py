@@ -544,8 +544,9 @@ class TestAdminWorkoutProgramViewSet:
         )
 
         assert response.status_code == status.HTTP_200_OK
+        # Mutation response is lightweight: day stubs without nested exercises
         assert response.data['days'][0]['name'] == 'Día actualizado'
-        assert response.data['days'][0]['exercises'][0]['sets'] == 4
+        assert 'exercises' not in response.data['days'][0]
 
         workout_program.refresh_from_db()
         fresh_day = workout_program.days.get()

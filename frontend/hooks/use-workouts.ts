@@ -1,7 +1,7 @@
 // hooks/use-workouts.ts
 // Hook para manejar rutinas de ejercicios con datos reales del backend
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { buildApiUrl, authenticatedFetch } from '@/lib/api'
 import { todayLocalDate } from '@/lib/local-date'
@@ -86,6 +86,9 @@ export interface WorkoutProgram {
   end_date?: string
   is_active: boolean
   days: WorkoutDay[]
+  loaded_week?: number
+  days_count?: number
+  total_days?: number
 }
 
 export interface WorkoutTemplate {
@@ -151,6 +154,8 @@ export function useWorkouts() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [hasAuthError, setHasAuthError] = useState(false)
+  // Evita que una respuesta lenta de week=N sobrescriba week=N+1
+  const activeProgramFetchGenRef = useRef(0)
 
   // Cargar datos iniciales
   useEffect(() => {
@@ -231,37 +236,84 @@ export function useWorkouts() {
     }
   }
 
-  // Obtener programa activo
-  const fetchActiveProgram = async () => {
+  // Obtener programa activo (semana actual por defecto; opcionalmente otra semana)
+  const fetchActiveProgram = async (week?: number) => {
     if (!isAuthenticated) {
       return
     }
 
+    const fetchGen = ++activeProgramFetchGenRef.current
+    const requestedWeek = typeof week === "number" && week >= 1 ? week : null
+
     try {
-      const response = await authenticatedFetch('workout-programs/my_active_program/', {
+      const weekQuery = requestedWeek != null ? `?week=${requestedWeek}` : ""
+      const response = await authenticatedFetch(`workout-programs/my_active_program/${weekQuery}`.replace(/\/\?/, "?"), {
         cache: 'no-store',
       })
 
+      // Respuesta obsoleta (el usuario ya pidió otra semana)
+      if (fetchGen !== activeProgramFetchGenRef.current) {
+        return
+      }
+
       if (response.ok) {
         const data = await response.json()
+        if (fetchGen !== activeProgramFetchGenRef.current) {
+          return
+        }
         // El API devuelve { program: {...} } o { program: null }
         const program = data.program || data
         if (program && program.id) {
-          // Asegurar que days siempre sea un array
-          setActiveProgram({
-            ...program,
-            days: program.days || []
+          const incomingDays = Array.isArray(program.days) ? program.days : []
+          const incomingWeek = Number(program.loaded_week) || requestedWeek
+          setActiveProgram((prev) => {
+            // Si llegó una respuesta de otra semana distinta a la última pedida, ignorar
+            if (
+              requestedWeek != null &&
+              incomingWeek != null &&
+              Number(incomingWeek) !== Number(requestedWeek)
+            ) {
+              return prev
+            }
+            // Fusionar días de otras semanas ya cargadas para no perder navegación local
+            if (prev && prev.id === program.id && Array.isArray(prev.days) && prev.days.length) {
+              const byNumber = new Map<number, any>()
+              for (const day of prev.days) {
+                if (day?.day_number != null) byNumber.set(Number(day.day_number), day)
+              }
+              for (const day of incomingDays) {
+                if (day?.day_number != null) byNumber.set(Number(day.day_number), day)
+              }
+              return {
+                ...program,
+                days: Array.from(byNumber.values()).sort(
+                  (a, b) => Number(a.day_number || 0) - Number(b.day_number || 0)
+                ),
+                loaded_week: program.loaded_week ?? incomingWeek ?? prev.loaded_week,
+                days_count: program.days_count ?? prev.days_count,
+                duration_weeks: program.duration_weeks ?? prev.duration_weeks,
+              }
+            }
+            return {
+              ...program,
+              days: incomingDays,
+            }
           })
         } else {
           setActiveProgram(null)
         }
       } else if (response.status === 404) {
-        setActiveProgram(null)
+        if (fetchGen === activeProgramFetchGenRef.current) {
+          setActiveProgram(null)
+        }
       } else {
         const data = await response.json()
         throw new Error(data.detail || 'Error al obtener programa activo')
       }
     } catch (err) {
+      if (fetchGen !== activeProgramFetchGenRef.current) {
+        return
+      }
       throw err
     }
   }
