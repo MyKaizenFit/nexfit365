@@ -86,6 +86,9 @@ export interface WorkoutProgram {
   end_date?: string
   is_active: boolean
   days: WorkoutDay[]
+  loaded_week?: number
+  days_count?: number
+  total_days?: number
 }
 
 export interface WorkoutTemplate {
@@ -231,14 +234,15 @@ export function useWorkouts() {
     }
   }
 
-  // Obtener programa activo
-  const fetchActiveProgram = async () => {
+  // Obtener programa activo (semana actual por defecto; opcionalmente otra semana)
+  const fetchActiveProgram = async (week?: number) => {
     if (!isAuthenticated) {
       return
     }
 
     try {
-      const response = await authenticatedFetch('workout-programs/my_active_program/', {
+      const weekQuery = typeof week === "number" && week >= 1 ? `?week=${week}` : ""
+      const response = await authenticatedFetch(`workout-programs/my_active_program/${weekQuery}`.replace(/\/\?/, "?"), {
         cache: 'no-store',
       })
 
@@ -247,10 +251,30 @@ export function useWorkouts() {
         // El API devuelve { program: {...} } o { program: null }
         const program = data.program || data
         if (program && program.id) {
-          // Asegurar que days siempre sea un array
-          setActiveProgram({
-            ...program,
-            days: program.days || []
+          const incomingDays = Array.isArray(program.days) ? program.days : []
+          setActiveProgram((prev) => {
+            // Fusionar días de otras semanas ya cargadas para no perder navegación local
+            if (prev && prev.id === program.id && Array.isArray(prev.days) && prev.days.length) {
+              const byNumber = new Map<number, any>()
+              for (const day of prev.days) {
+                if (day?.day_number != null) byNumber.set(Number(day.day_number), day)
+              }
+              for (const day of incomingDays) {
+                if (day?.day_number != null) byNumber.set(Number(day.day_number), day)
+              }
+              return {
+                ...program,
+                days: Array.from(byNumber.values()).sort(
+                  (a, b) => Number(a.day_number || 0) - Number(b.day_number || 0)
+                ),
+                loaded_week: program.loaded_week,
+                days_count: program.days_count ?? prev.days_count,
+              }
+            }
+            return {
+              ...program,
+              days: incomingDays,
+            }
           })
         } else {
           setActiveProgram(null)

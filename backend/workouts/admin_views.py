@@ -21,11 +21,14 @@ from .admin_serializers import (
     AdminExerciseSerializer,
     AdminExerciseListSerializer,
     AdminWorkoutProgramSerializer,
+    AdminWorkoutProgramMutationSerializer,
     AdminWorkoutDaySerializer,
     AdminWorkoutProgramMinimalSerializer,
 )
+from .query_utils import parse_week_param, program_days_prefetch
 from .serializers import WorkoutLogSerializer
 from rest_framework.decorators import action
+from .workout_week_utils import day_numbers_for_week
 
 User = get_user_model()
 
@@ -158,10 +161,44 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
         if self.action == 'list':
             return base_qs.prefetch_related('days')
 
-        return base_qs.prefetch_related(
-            'days__exercises__exercise',
-            'days__exercises__exercise__substitutions__substitute',
-        )
+        week = None
+        if self.action == 'retrieve' and hasattr(self, 'request'):
+            try:
+                week = parse_week_param(self.request.query_params.get('week'))
+            except ValueError:
+                week = None
+
+        return base_qs.prefetch_related(program_days_prefetch(week=week))
+
+    def retrieve(self, request, *args, **kwargs):
+        try:
+            week = parse_week_param(request.query_params.get('week'))
+        except ValueError as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        instance = self.get_object()
+        if week is not None:
+            duration = max(1, int(instance.duration_weeks or 1))
+            max_day = (
+                WorkoutDay.objects.filter(program_id=instance.pk)
+                .order_by('-day_number')
+                .values_list('day_number', flat=True)
+                .first()
+            ) or 7
+            from .workout_week_utils import week_number_from_day_number
+            max_week = max(duration, week_number_from_day_number(max_day))
+            if week > max_week:
+                return Response(
+                    {'detail': f'week={week} supera la duración del programa ({max_week})'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            instance = prefetch_workout_program_with_days(instance, week=week) or instance
+
+        serializer = self.get_serializer(instance)
+        data = dict(serializer.data)
+        if week is not None:
+            data['loaded_week'] = week
+        return Response(data)
 
     def get_serializer_class(self):
         if self.action == 'list':
@@ -190,16 +227,32 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
             'total_pages': (total + page_size - 1) // page_size,
         })
 
-    def _apply_days_payload(self, program: WorkoutProgram, days_data):
+    def _apply_days_payload(self, program: WorkoutProgram, days_data, *, week_scope: int | None = None):
         """
         Upsert días+ejercicios por day_number. Solo borra días ausentes del payload
         para no orphanizar WorkoutLog (SET_NULL) en cada autosave.
+
+        Si week_scope está definido, solo toca días de esa semana (no borra otras).
         """
         from .models import WorkoutDayExercise
         from .workout_week_utils import day_of_week_for_day_number
 
         days_data = days_data or []
-        existing_by_number = {day.day_number: day for day in program.days.all()}
+        week_day_numbers = set(day_numbers_for_week(week_scope)) if week_scope else None
+
+        if week_day_numbers is not None:
+            existing_by_number = {
+                day.day_number: day
+                for day in program.days.filter(day_number__in=week_day_numbers)
+            }
+            # Ignorar payload de días fuera de la semana (seguridad)
+            days_data = [
+                day for day in days_data
+                if int(day.get('day_number', 0) or 0) in week_day_numbers
+            ]
+        else:
+            existing_by_number = {day.day_number: day for day in program.days.all()}
+
         incoming_numbers = set()
 
         for day_index, day_data in enumerate(days_data):
@@ -283,10 +336,16 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
                 )
 
         # Remove days dropped from the payload (logs for those days become SET_NULL).
+        # Con week_scope solo se eliminan días de esa semana ausentes del payload.
         if incoming_numbers:
-            program.days.exclude(day_number__in=incoming_numbers).delete()
-        elif days_data == []:
+            delete_qs = program.days.exclude(day_number__in=incoming_numbers)
+            if week_day_numbers is not None:
+                delete_qs = delete_qs.filter(day_number__in=week_day_numbers)
+            delete_qs.delete()
+        elif days_data == [] and week_day_numbers is None:
             program.days.all().delete()
+        elif days_data == [] and week_day_numbers is not None:
+            program.days.filter(day_number__in=week_day_numbers).delete()
 
         weekly_training_days = DefaultWorkoutAssignmentService.infer_weekly_training_days(program)
         if weekly_training_days and program.days_per_week != weekly_training_days:
@@ -330,7 +389,7 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
     @staticmethod
     def _sanitize_program_payload(data):
         """Elimina campos del frontend que no existen en el modelo."""
-        for key in ('assigned_users', 'min_role_required', 'user_ids'):
+        for key in ('assigned_users', 'min_role_required', 'user_ids', 'week'):
             if hasattr(data, 'pop'):
                 data.pop(key, None)
             elif isinstance(data, dict):
@@ -388,6 +447,12 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
         days_data = data.pop('days', []) or []
         assigned_user_ids = self._extract_assigned_user_ids(data)
         data.pop('assigned_user_ids', None)
+        try:
+            week_scope = parse_week_param(
+                request.query_params.get('week') or data.get('week')
+            )
+        except ValueError as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         self._sanitize_program_payload(data)
 
         user_id = data.get('user_id') or data.get('user')
@@ -407,7 +472,7 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         program: WorkoutProgram = serializer.save(created_by=request.user)
 
-        self._apply_days_payload(program, days_data)
+        self._apply_days_payload(program, days_data, week_scope=week_scope)
 
         created_user_program_ids = []
         if assigned_user_ids:
@@ -442,7 +507,7 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
         if program.user_id:
             sync_users_from_workout_program(program)
 
-        response_serializer = AdminWorkoutProgramSerializer(program)
+        response_serializer = AdminWorkoutProgramMutationSerializer(program)
         response_data = dict(response_serializer.data)
         if assigned_user_ids is None:
             response_data['assigned_user_ids'] = [program.user_id] if program.user_id else []
@@ -464,6 +529,12 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
         days_data = data.pop('days', None)  # None => no tocar días
         assigned_user_ids = self._extract_assigned_user_ids(data)
         data.pop('assigned_user_ids', None)
+        try:
+            week_scope = parse_week_param(
+                request.query_params.get('week') or data.get('week')
+            )
+        except ValueError as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         self._sanitize_program_payload(data)
 
         serializer = self.get_serializer(instance, data=data, partial=partial)
@@ -471,8 +542,7 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
         program: WorkoutProgram = serializer.save()
 
         if days_data is not None:
-            self._apply_days_payload(program, days_data)
-            program = prefetch_workout_program_with_days(program) or program
+            self._apply_days_payload(program, days_data, week_scope=week_scope)
 
         created_user_program_ids = []
         if assigned_user_ids is not None:
@@ -521,13 +591,15 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
         if program.user_id:
             sync_users_from_workout_program(program)
 
-        response_serializer = AdminWorkoutProgramSerializer(program)
+        response_serializer = AdminWorkoutProgramMutationSerializer(program)
         response_data = dict(response_serializer.data)
         if assigned_user_ids is None:
             response_data['assigned_user_ids'] = [program.user_id] if program.user_id else []
         else:
             response_data['assigned_user_ids'] = assigned_user_ids
         response_data['created_user_program_ids'] = created_user_program_ids
+        if week_scope is not None:
+            response_data['updated_week'] = week_scope
         return Response(response_data, status=status.HTTP_200_OK)
 
     def partial_update(self, request, *args, **kwargs):
@@ -579,17 +651,20 @@ class AdminWorkoutDayViewSet(viewsets.ModelViewSet):
 def admin_user_program(request, user_id: int):
     """
     Programa activo o más reciente de un usuario, con días y ejercicios.
+    Soporta ?week=N para limitar días a una semana.
     """
+    try:
+        week = parse_week_param(request.query_params.get('week'))
+    except ValueError as exc:
+        return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
     user = get_object_or_404(User, pk=user_id)
-    program = WorkoutProgram.objects.filter(user=user).prefetch_related(
-        'days__exercises__exercise',
-        'days__exercises__exercise__substitutions__substitute',
-    ).order_by('-is_active', '-created_at').first()
+    program = WorkoutProgram.objects.filter(user=user).order_by('-is_active', '-created_at').first()
 
     if not program:
         reference_program, reference_source = resolve_reference_workout_program(user)
         reference_payload = None
-        prefetched_reference = prefetch_workout_program_with_days(reference_program)
+        prefetched_reference = prefetch_workout_program_with_days(reference_program, week=week)
         if prefetched_reference:
             reference_payload = AdminWorkoutProgramSerializer(prefetched_reference).data
 
@@ -601,16 +676,23 @@ def admin_user_program(request, user_id: int):
             'message': 'El usuario no tiene programas asignados'
         })
 
+    from .query_utils import resolve_program_current_week
+    loaded_week = week or resolve_program_current_week(program)
+    program = prefetch_workout_program_with_days(program, week=loaded_week) or program
     serializer = AdminWorkoutProgramSerializer(program)
+    program_data = dict(serializer.data)
+    program_data['loaded_week'] = loaded_week
+    program_data['days_count'] = WorkoutDay.objects.filter(program_id=program.pk).count()
+
     reference_program, reference_source = resolve_reference_workout_program(user, program)
     reference_payload = None
-    prefetched_reference = prefetch_workout_program_with_days(reference_program)
+    prefetched_reference = prefetch_workout_program_with_days(reference_program, week=1)
     if prefetched_reference:
         reference_payload = AdminWorkoutProgramSerializer(prefetched_reference).data
 
     return Response({
         'user_id': user.id,
-        'program': serializer.data,
+        'program': program_data,
         'reference_program': reference_payload,
         'reference_program_source': reference_source,
         'summary': {
@@ -619,6 +701,7 @@ def admin_user_program(request, user_id: int):
             'total_days': program.total_days,
             'training_days': program.training_days,
             'is_active': program.is_active,
+            'loaded_week': loaded_week,
         }
     })
 

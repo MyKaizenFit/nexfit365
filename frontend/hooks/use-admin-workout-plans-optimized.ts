@@ -377,14 +377,16 @@ export const useAdminWorkoutPlansOptimized = (initialFilters: WorkoutPlanFilters
     }
   }, [totalCount, plans.length])
 
-  // Función para obtener el detalle completo de un plan
-  const fetchPlanDetail = useCallback(async (planId: string): Promise<WorkoutPlan | null> => {
+  const fetchPlanDetail = useCallback(async (planId: string, week?: number): Promise<WorkoutPlan | null> => {
     if (!isValidWorkoutPlanId(planId)) {
       return null
     }
 
     try {
-      const response = await authenticatedFetch(`admin/workouts/programs/${planId}/`, {
+      const weekQuery = typeof week === "number" && week >= 1 ? `?week=${week}` : ""
+      const response = await authenticatedFetch(
+        `admin/workouts/programs/${planId}/${weekQuery}`.replace(/\/\?/, "?"),
+        {
         cache: 'no-store',
       })
 

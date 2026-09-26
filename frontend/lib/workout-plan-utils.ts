@@ -71,6 +71,7 @@ export function planDurationWeeksFromPlan(plan: WorkoutPlanLike | null | undefin
 
   const explicit = plan?.duration_weeks
   if (typeof explicit === "number" && explicit > 0) {
+    // Preferir duration_weeks cuando el payload solo trae una semana cargada
     return Math.max(explicit, fromDays)
   }
 
@@ -88,7 +89,11 @@ export function expectedProgramEndDate(plan: WorkoutPlanLike | null | undefined)
 }
 
 export function isMultiWeekPlan(plan: WorkoutPlanLike | null | undefined): boolean {
-  if (!plan?.days?.length) return false
+  if (!plan) return false
+  if (typeof plan.duration_weeks === "number" && plan.duration_weeks > 1) {
+    return true
+  }
+  if (!plan.days?.length) return false
   return plan.days.some((day) => (day.day_number || 0) > 7)
 }
 

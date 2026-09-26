@@ -384,7 +384,13 @@ export function WorkoutDashboardEnhanced() {
       return logDate.toDateString() === today.toDateString()
     })
 
-    for (const day of activeProgram.days) {
+    // Solo días de la semana cargada / relevantes para hoy (evita 400 por URI demasiado larga)
+    const todaysPlanDay = getTodaysWorkout()
+    const candidateDays = todaysPlanDay
+      ? [todaysPlanDay, ...activeProgram.days.filter((d) => d.id !== todaysPlanDay.id)].slice(0, 14)
+      : activeProgram.days.slice(0, 14)
+
+    for (const day of candidateDays) {
       const dayId = String(day.id || '').trim()
 
       if (!dayId || !UUID_REGEX.test(dayId) || checkedDayIds.has(dayId)) {
@@ -437,7 +443,7 @@ export function WorkoutDashboardEnhanced() {
     }
 
     setTodayWorkoutCompleted(completed)
-  }, [activeProgram, workoutLogs, isAuthenticated])
+  }, [activeProgram, workoutLogs, isAuthenticated, getTodaysWorkout])
 
   // Limpiar estado local cuando cambie el plan para evitar IDs obsoletos
   useEffect(() => {

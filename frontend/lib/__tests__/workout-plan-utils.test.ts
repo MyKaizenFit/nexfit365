@@ -127,7 +127,9 @@ describe('multi-week plan resolution', () => {
   it('detects multi-week plans', () => {
     expect(isMultiWeekPlan(multiWeekPlan)).toBe(true)
     expect(isMultiWeekPlan({ days: [{ day_number: 1 }] })).toBe(false)
-    expect(isMultiWeekPlan({ duration_weeks: 4, days: [{ day_number: 1 }] })).toBe(false)
+    // duration_weeks > 1: payloads week-scoped solo traen días de una semana
+    expect(isMultiWeekPlan({ duration_weeks: 4, days: [{ day_number: 1 }] })).toBe(true)
+    expect(isMultiWeekPlan({ duration_weeks: 1, days: [{ day_number: 1 }] })).toBe(false)
   })
 
   it('returns week 1 during the first calendar week after start_date', () => {

@@ -472,30 +472,45 @@ export const WorkoutTemplatePlanEditor = forwardRef<
 
     setLoading(true)
     try {
-      const data = await fetchJsonWithAuth(`admin/workouts/programs/${resolvedPlanId}/`)
+      const mapIncomingDays = (incomingDays: any[]): WorkoutDayDraft[] =>
+        (Array.isArray(incomingDays) ? incomingDays : []).map((d: any) => {
+          const exercises = Array.isArray(d.exercises) ? d.exercises : []
+          const dayName = d.day_name || d.name || `Día ${d.day_number || 1}`
+          return {
+            day_number: d.day_number || 1,
+            day_name: fixEncoding(dayName),
+            is_rest_day: d.is_rest_day || false,
+            notes: fixEncoding(d.notes || ""),
+            exercises: exercises.map((ex: any) => ({
+              exercise_id: String(ex.exercise_id || ex.exercise || ex.id || ""),
+              series: ex.series != null ? toNumber(ex.series) : (ex.sets != null ? toNumber(ex.sets) : undefined),
+              reps: ex.reps ? String(ex.reps) : undefined,
+              weight: ex.weight ? String(ex.weight) : "",
+              rest_seconds: ex.rest_seconds != null ? toNumber(ex.rest_seconds) : undefined,
+              notes: ex.notes ? fixEncoding(String(ex.notes)) : undefined,
+            })),
+          }
+        })
 
-      const duration = Math.max(1, data.duration_weeks || 1)
+      // Cargar por semanas para evitar payloads de 4MB en macrociclos anuales
+      const first = await fetchJsonWithAuth(`admin/workouts/programs/${resolvedPlanId}/?week=1`)
+      const duration = Math.max(1, first.duration_weeks || 1)
       setPlanDurationWeeks(duration)
 
-      const incomingDays = Array.isArray(data.days) ? data.days : []
-      const mapped: WorkoutDayDraft[] = incomingDays.map((d: any) => {
-        const exercises = Array.isArray(d.exercises) ? d.exercises : []
-        const dayName = d.day_name || d.name || `Día ${d.day_number || 1}`
-        return {
-          day_number: d.day_number || 1,
-          day_name: fixEncoding(dayName),
-          is_rest_day: d.is_rest_day || false,
-          notes: fixEncoding(d.notes || ""),
-          exercises: exercises.map((ex: any) => ({
-            exercise_id: String(ex.exercise_id || ex.exercise || ex.id || ""),
-            series: ex.series != null ? toNumber(ex.series) : (ex.sets != null ? toNumber(ex.sets) : undefined),
-            reps: ex.reps ? String(ex.reps) : undefined,
-            weight: ex.weight ? String(ex.weight) : "",
-            rest_seconds: ex.rest_seconds != null ? toNumber(ex.rest_seconds) : undefined,
-            notes: ex.notes ? fixEncoding(String(ex.notes)) : undefined,
-          })),
+      const mapped: WorkoutDayDraft[] = mapIncomingDays(first.days || [])
+      const BATCH = 4
+      for (let start = 2; start <= duration; start += BATCH) {
+        const weekNums = []
+        for (let w = start; w < start + BATCH && w <= duration; w += 1) {
+          weekNums.push(w)
         }
-      })
+        const batchResults = await Promise.all(
+          weekNums.map((w) => fetchJsonWithAuth(`admin/workouts/programs/${resolvedPlanId}/?week=${w}`))
+        )
+        for (const data of batchResults) {
+          mapped.push(...mapIncomingDays(data.days || []))
+        }
+      }
 
       const daysByNumber = new Map<number, WorkoutDayDraft>()
       mapped.forEach((day) => { daysByNumber.set(day.day_number, day) })
@@ -880,29 +895,37 @@ export const WorkoutTemplatePlanEditor = forwardRef<
         setSaving(true)
       }
 
-      // Enviar todos los días de todas las semanas (no solo los 7 de la semana 1)
-      const daysPayload = days.map((day) => {
-        const exercises = Array.isArray(day.exercises) ? day.exercises : []
-        const hasExercises = exercises.length > 0
-        return {
-          day_number: day.day_number,
-          day_name: day.day_name?.trim() || `Día ${day.day_number}`,
-          is_rest_day: !hasExercises,
-          notes: day.notes || "",
-          exercises: exercises
-            .filter((e) => e.exercise_id)
-            .map((e) => ({
-              exercise_id: e.exercise_id,
-              sets: e.series != null ? toNumber(e.series) : 3,
-              reps: (e.reps || "10-12").toString(),
-              weight: e.weight || "",
-              rest_seconds: e.rest_seconds != null ? toNumber(e.rest_seconds) : 60,
-              notes: e.notes || "",
-            })),
-        }
-      })
+      // Enviar solo la semana activa (week-scoped) para no recrear el macrociclo entero
+      const weekDayNumbers = new Set(
+        Array.from({ length: 7 }, (_, i) => dayNumberFromWeekAndDay(activeWeek, i + 1))
+      )
+      const daysPayload = days
+        .filter((day) => weekDayNumbers.has(day.day_number))
+        .map((day) => {
+          const exercises = Array.isArray(day.exercises) ? day.exercises : []
+          const hasExercises = exercises.length > 0
+          return {
+            day_number: day.day_number,
+            day_name: day.day_name?.trim() || `Día ${day.day_number}`,
+            is_rest_day: !hasExercises,
+            notes: day.notes || "",
+            exercises: exercises
+              .filter((e) => e.exercise_id)
+              .map((e) => ({
+                exercise_id: e.exercise_id,
+                sets: e.series != null ? toNumber(e.series) : 3,
+                reps: (e.reps || "10-12").toString(),
+                weight: e.weight || "",
+                rest_seconds: e.rest_seconds != null ? toNumber(e.rest_seconds) : 60,
+                notes: e.notes || "",
+              })),
+          }
+        })
 
-      await patchJsonWithAuth(`admin/workouts/programs/${resolvedPlanId}/`, { days: daysPayload })
+      await patchJsonWithAuth(
+        `admin/workouts/programs/${resolvedPlanId}/?week=${activeWeek}`,
+        { days: daysPayload, week: activeWeek },
+      )
 
       updateUnsavedChanges(false)
       if (silent) {

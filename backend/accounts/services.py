@@ -3,10 +3,13 @@
 #
 # Sistema de asignación automática basado en el perfil del usuario
 
-from typing import Optional
-from django.contrib.auth import get_user_model
 import logging
 import random
+import uuid
+from typing import Optional
+
+from django.contrib.auth import get_user_model
+from django.utils import timezone
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -232,15 +235,21 @@ def get_template_training_days_with_exercises(template_program):
 
 
 def copy_workout_day_exercises(source_day, target_day):
+    """Copia ejercicios de un día a otro (bulk). Conserva order_index y FKs."""
     from workouts.models import WorkoutDayExercise
 
-    copied_count = 0
-    for template_exercise in WorkoutDayExercise.objects.filter(
-        workout_day=source_day
-    ).order_by('order_index'):
-        WorkoutDayExercise.objects.create(
+    source_exercises = _iter_day_exercises(source_day)
+    if not source_exercises:
+        return 0
+
+    now = timezone.now()
+    rows = [
+        WorkoutDayExercise(
+            id=uuid.uuid4(),
+            created_at=now,
+            updated_at=now,
             workout_day=target_day,
-            exercise=template_exercise.exercise,
+            exercise_id=template_exercise.exercise_id,
             sets=template_exercise.sets,
             reps=template_exercise.reps,
             weight=template_exercise.weight,
@@ -248,10 +257,26 @@ def copy_workout_day_exercises(source_day, target_day):
             rest_seconds=template_exercise.rest_seconds,
             notes=template_exercise.notes,
             order_index=template_exercise.order_index,
-            superset_group=template_exercise.superset_group
+            superset_group=template_exercise.superset_group,
         )
-        copied_count += 1
-    return copied_count
+        for template_exercise in source_exercises
+    ]
+    WorkoutDayExercise.objects.bulk_create(rows)
+    return len(rows)
+
+
+def _day_exercise_count(day) -> int:
+    cached = getattr(day, "_prefetched_objects_cache", None) or {}
+    if "exercises" in cached:
+        return len(cached["exercises"])
+    return day.exercises.count()
+
+
+def _iter_day_exercises(day):
+    cached = getattr(day, "_prefetched_objects_cache", None) or {}
+    if "exercises" in cached:
+        return sorted(cached["exercises"], key=lambda e: e.order_index)
+    return list(day.exercises.all().order_by("order_index"))
 
 
 def _template_is_multi_week(template_days, duration_weeks=None):
@@ -272,10 +297,15 @@ def copy_template_days_to_user_program(
     """
     Copia días de una plantilla al programa del usuario preservando semanas múltiples.
     Si hay días de entrenamiento personalizados, remapea cada semana a esos días.
+
+    Usa bulk_create para días y ejercicios (WorkoutDay/WorkoutDayExercise no tienen
+    save() custom ni signals). Atómico: falla → rollback completo.
     """
     from collections import defaultdict
 
-    from workouts.models import WorkoutDay
+    from django.db import transaction
+
+    from workouts.models import WorkoutDay, WorkoutDayExercise
     from workouts.workout_week_utils import (
         day_number_for_week_slot,
         day_of_week_for_day_number,
@@ -294,12 +324,25 @@ def copy_template_days_to_user_program(
                 f"{sanitize_day_name(template_day.name)}"
             )
 
-    copied_days_count = 0
-    copied_exercises_count = 0
     user_training_days_sorted = sorted(user_training_days) if user_training_days else None
     template_training_days = template_training_days or template_days
     duration_weeks = workout_program.duration_weeks or 1
     multi_week = _template_is_multi_week(template_days, duration_weeks)
+
+    # Pares (new_day_unsaved, source_day_or_None) — source None = rest sin ejercicios
+    pending_days: list[tuple[WorkoutDay, object | None]] = []
+
+    def queue_day(*, source_day, **kwargs):
+        now = timezone.now()
+        day = WorkoutDay(
+            id=uuid.uuid4(),
+            created_at=now,
+            updated_at=now,
+            program=workout_program,
+            **kwargs,
+        )
+        pending_days.append((day, source_day))
+        return day
 
     if user_training_days_sorted and not multi_week:
         source_days = [
@@ -308,8 +351,8 @@ def copy_template_days_to_user_program(
         ] or list(template_days)
         for index, user_day in enumerate(user_training_days_sorted):
             template_day = source_days[index % len(source_days)]
-            new_day = WorkoutDay.objects.create(
-                program=workout_program,
+            queue_day(
+                source_day=template_day,
                 name=build_training_day_name(user_day, template_day),
                 day_number=user_day,
                 day_of_week=weekday_for_day_number(user_day),
@@ -319,11 +362,8 @@ def copy_template_days_to_user_program(
                 focus=template_day.focus,
                 order_index=index + 1,
             )
-            copied_days_count += 1
-            copied_exercises_count += copy_workout_day_exercises(template_day, new_day)
-        return copied_days_count, copied_exercises_count
 
-    if user_training_days_sorted and multi_week:
+    elif user_training_days_sorted and multi_week:
         weeks = defaultdict(list)
         for template_day in template_days:
             weeks[week_number_from_day_number(template_day.day_number or 1)].append(template_day)
@@ -337,14 +377,14 @@ def copy_template_days_to_user_program(
             source_days = training_days_in_week or week_days
             for training_index, user_slot in enumerate(user_training_days_sorted):
                 template_day = source_days[training_index % len(source_days)]
-                if not template_day.is_rest_day and template_day.exercises.count() == 0:
+                if not template_day.is_rest_day and _day_exercise_count(template_day) == 0:
                     continue
 
                 new_day_number = day_number_for_week_slot(week_num, user_slot)
                 assigned_slots.add(user_slot)
 
-                new_day = WorkoutDay.objects.create(
-                    program=workout_program,
+                queue_day(
+                    source_day=template_day,
                     name=build_training_day_name(user_slot, template_day),
                     day_number=new_day_number,
                     day_of_week=day_of_week_for_day_number(new_day_number),
@@ -355,16 +395,14 @@ def copy_template_days_to_user_program(
                     order_index=order_index,
                 )
                 order_index += 1
-                copied_days_count += 1
-                copied_exercises_count += copy_workout_day_exercises(template_day, new_day)
 
             for template_day in [day for day in week_days if day.is_rest_day]:
                 slot = slot_in_week_from_day_number(template_day.day_number or 1)
                 if slot in assigned_slots:
                     continue
                 new_day_number = day_number_for_week_slot(week_num, slot)
-                new_day = WorkoutDay.objects.create(
-                    program=workout_program,
+                queue_day(
+                    source_day=None,
                     name=sanitize_day_name(template_day.name),
                     day_number=new_day_number,
                     day_of_week=day_of_week_for_day_number(new_day_number),
@@ -375,29 +413,57 @@ def copy_template_days_to_user_program(
                     order_index=order_index,
                 )
                 order_index += 1
-                copied_days_count += 1
 
-        return copied_days_count, copied_exercises_count
+    else:
+        for template_day in template_days:
+            if not template_day.is_rest_day and _day_exercise_count(template_day) == 0:
+                continue
+            queue_day(
+                source_day=None if template_day.is_rest_day else template_day,
+                name=sanitize_day_name(template_day.name),
+                day_number=template_day.day_number,
+                day_of_week=day_of_week_for_day_number(template_day.day_number or 1),
+                is_rest_day=template_day.is_rest_day,
+                notes=template_day.notes,
+                duration_minutes=template_day.duration_minutes,
+                focus=template_day.focus,
+                order_index=template_day.order_index,
+            )
 
-    for template_day in template_days:
-        if not template_day.is_rest_day and template_day.exercises.count() == 0:
-            continue
-        new_day = WorkoutDay.objects.create(
-            program=workout_program,
-            name=sanitize_day_name(template_day.name),
-            day_number=template_day.day_number,
-            day_of_week=day_of_week_for_day_number(template_day.day_number or 1),
-            is_rest_day=template_day.is_rest_day,
-            notes=template_day.notes,
-            duration_minutes=template_day.duration_minutes,
-            focus=template_day.focus,
-            order_index=template_day.order_index,
-        )
-        copied_days_count += 1
-        if not template_day.is_rest_day:
-            copied_exercises_count += copy_workout_day_exercises(template_day, new_day)
+    if not pending_days:
+        return 0, 0
 
-    return copied_days_count, copied_exercises_count
+    with transaction.atomic():
+        WorkoutDay.objects.bulk_create([day for day, _ in pending_days])
+
+        exercise_rows = []
+        now = timezone.now()
+        for new_day, source_day in pending_days:
+            if source_day is None or new_day.is_rest_day:
+                continue
+            for template_exercise in _iter_day_exercises(source_day):
+                exercise_rows.append(
+                    WorkoutDayExercise(
+                        id=uuid.uuid4(),
+                        created_at=now,
+                        updated_at=now,
+                        workout_day_id=new_day.id,
+                        exercise_id=template_exercise.exercise_id,
+                        sets=template_exercise.sets,
+                        reps=template_exercise.reps,
+                        weight=template_exercise.weight,
+                        duration_seconds=template_exercise.duration_seconds,
+                        rest_seconds=template_exercise.rest_seconds,
+                        notes=template_exercise.notes,
+                        order_index=template_exercise.order_index,
+                        superset_group=template_exercise.superset_group,
+                    )
+                )
+
+        if exercise_rows:
+            WorkoutDayExercise.objects.bulk_create(exercise_rows)
+
+    return len(pending_days), len(exercise_rows)
 
 
 def assign_default_plans_to_user(user):

@@ -163,6 +163,55 @@ class AdminWorkoutProgramSerializer(EncodingFixMixin, serializers.ModelSerialize
         fields = '__all__'
 
 
+class AdminWorkoutProgramMutationSerializer(EncodingFixMixin, serializers.ModelSerializer):
+    """
+    Respuesta ligera tras create/update/assign.
+    Incluye stub de días (id/day_number) para merge de IDs en frontend,
+    sin ejercicios ni substitutes.
+    """
+    days = serializers.SerializerMethodField()
+    total_days = serializers.SerializerMethodField()
+
+    class Meta:
+        model = WorkoutProgram
+        fields = [
+            "id",
+            "name",
+            "description",
+            "difficulty",
+            "goal",
+            "location",
+            "duration_weeks",
+            "days_per_week",
+            "estimated_duration_minutes",
+            "is_template",
+            "is_system",
+            "is_active",
+            "user",
+            "created_by",
+            "start_date",
+            "end_date",
+            "tags",
+            "created_at",
+            "updated_at",
+            "days",
+            "total_days",
+        ]
+
+    def get_days(self, obj) -> list:
+        return list(
+            obj.days.order_by("order_index", "day_number").values(
+                "id", "day_number", "name", "order_index", "is_rest_day"
+            )
+        )
+
+    def get_total_days(self, obj) -> int:
+        try:
+            return obj.days.count()
+        except Exception:
+            return 0
+
+
 class AdminWorkoutProgramMinimalSerializer(EncodingFixMixin, serializers.ModelSerializer):
     """
     Serializer minimal para listas en admin.

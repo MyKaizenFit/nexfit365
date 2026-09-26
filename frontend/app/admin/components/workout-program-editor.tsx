@@ -1233,7 +1233,11 @@ export function WorkoutProgramEditor({
       const normalizedSchedule = dedupeWorkoutScheduleBySlot(
         normalizeWorkoutDayNumbers(program.weeklySchedule),
       )
-      const daysPayload = normalizedSchedule.map((day, index) => ({
+      // Autosave / save: solo la semana activa (evita recrear macrociclos enteros)
+      const weekScopedSchedule = normalizedSchedule.filter(
+        (day, index) => getWorkoutWeekNumber(day, index) === activeWeek
+      )
+      const daysPayload = weekScopedSchedule.map((day, index) => ({
         id: day.id,
         // Backend deriva day_of_week desde day_number; enviarlo es opcional/legacy.
         day_of_week: dayToDayOfWeekMap[day.day] || day.day.toLowerCase() || "monday",
@@ -1271,12 +1275,13 @@ export function WorkoutProgramEditor({
         duration_weeks: program.durationWeeks || 4,
         is_active: program.isActive !== false,
         days: daysPayload,
+        week: activeWeek,
       }
 
       let response: Response
       if (program.id) {
         // Usar el endpoint de admin para actualizar programas de usuarios
-        response = await fetch(buildApiUrl(`admin/workouts/programs/${program.id}/`), {
+        response = await fetch(buildApiUrl(`admin/workouts/programs/${program.id}/?week=${activeWeek}`), {
         credentials: 'include',
           method: "PATCH",
           headers: {
