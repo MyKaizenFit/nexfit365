@@ -438,6 +438,8 @@ export function WorkoutProgramEditor({
   const lastUserInteractionRef = useRef(Date.now())
   const hasLoadedOnceRef = useRef(false)
   const calendarPlanAnchorRef = useRef(getMondayOfWeek(new Date()).toISOString().slice(0, 10))
+  const weekFetchGenRef = useRef(0)
+  const loadedWeeksRef = useRef(new Set<number>())
   const resolvedUserId = parsePositiveIntId(userId)
   const invalidUserId = userId != null && userId !== "" && resolvedUserId == null
 
@@ -487,7 +489,7 @@ export function WorkoutProgramEditor({
     return () => window.removeEventListener("beforeunload", handleBeforeUnload)
   }, [hasUnsavedChanges])
 
-  const loadUserProgram = async (options: { silent?: boolean } = {}) => {
+  const loadUserProgram = async (options: { silent?: boolean; week?: number; merge?: boolean } = {}) => {
     const parsedUserId = parsePositiveIntId(userId)
     if (!parsedUserId) {
       setError(formatInvalidIdMessage("ID de usuario"))
@@ -495,6 +497,9 @@ export function WorkoutProgramEditor({
       return
     }
 
+    const targetWeek = Math.max(1, options.week ?? 1)
+    const merge = options.merge === true
+    const fetchGen = ++weekFetchGenRef.current
     const showBlockingLoader = !options.silent && !hasLoadedOnceRef.current
     try {
       if (showBlockingLoader) setLoading(true)
@@ -502,19 +507,29 @@ export function WorkoutProgramEditor({
 
       const headers = await getAuthHeaders()
 
-      const response = await fetch(buildApiUrl(`admin/workouts/users/${parsedUserId}/program/`), {
-        credentials: 'include',
-        headers,
-        cache: "no-store",
-      })
+      const response = await fetch(
+        buildApiUrl(`admin/workouts/users/${parsedUserId}/program/?week=${targetWeek}`),
+        {
+          credentials: 'include',
+          headers,
+          cache: "no-store",
+        },
+      )
+
+      if (fetchGen !== weekFetchGenRef.current) {
+        return
+      }
 
       if (!response.ok) {
         throw new Error("Error al cargar el programa de entrenamiento del usuario")
       }
 
       const data = await response.json()
+      if (fetchGen !== weekFetchGenRef.current) {
+        return
+      }
 
-      if (data.reference_program?.days?.length) {
+      if (!merge && data.reference_program?.days?.length) {
         setReferenceSchedule(mapApiDaysToSchedule(data.reference_program.days))
         setReferenceProgramName(fixEncoding(data.reference_program.name || "Plantilla admin"))
         setReferenceProgramSource(
@@ -522,7 +537,7 @@ export function WorkoutProgramEditor({
             ? data.reference_program_source
             : null,
         )
-      } else {
+      } else if (!merge) {
         setReferenceSchedule([])
         setReferenceProgramName(null)
         setReferenceProgramSource(null)
@@ -532,6 +547,8 @@ export function WorkoutProgramEditor({
       const detail = data.program
 
       if (!detail) {
+        if (merge) return
+        loadedWeeksRef.current = new Set()
         // Si no tiene programa aún, crear uno vacío en memoria
         setProgram({
           name: "Nuevo Programa de Entrenamientos",
@@ -544,17 +561,44 @@ export function WorkoutProgramEditor({
           durationWeeks: 4,
           isActive: true,
         })
+        setActiveWeek(1)
         updateUnsavedChanges(false)
         return
       }
 
-      const weeklySchedule = mapApiDaysToSchedule(detail.days || [])
+      const weekSchedule = mapApiDaysToSchedule(detail.days || [])
+      const loadedWeek = Number(detail.loaded_week) || targetWeek
+
+      if (merge) {
+        setProgram((current) => {
+          if (!current || current.id !== detail.id) return current
+          const byNumber = new Map<number, WorkoutDay>()
+          for (const day of current.weeklySchedule || []) {
+            if (day.dayNumber != null) byNumber.set(Number(day.dayNumber), day)
+          }
+          for (const day of weekSchedule) {
+            if (day.dayNumber != null) byNumber.set(Number(day.dayNumber), day)
+          }
+          return {
+            ...current,
+            durationWeeks: detail.duration_weeks || current.durationWeeks,
+            weeklySchedule: dedupeWorkoutScheduleBySlot(
+              normalizeWorkoutDayNumbers(Array.from(byNumber.values())),
+            ),
+          }
+        })
+        loadedWeeksRef.current.add(loadedWeek)
+        return
+      }
+
       const startDate = detail.start_date || undefined
       if (startDate) {
         calendarPlanAnchorRef.current = getMondayOfWeek(new Date(`${startDate}T00:00:00`)).toISOString().slice(0, 10)
         setCalendarMonth(new Date(`${startDate}T00:00:00`))
         setSelectedCalendarDate(new Date(`${startDate}T00:00:00`))
       }
+      loadedWeeksRef.current = new Set([loadedWeek])
+      setActiveWeek(loadedWeek)
       setProgram({
         id: detail.id,
         name: fixEncoding(detail.name || "Programa de Entrenamiento"),
@@ -562,14 +606,17 @@ export function WorkoutProgramEditor({
         level: detail.difficulty || "intermediate", // El backend usa 'difficulty', no 'level'
         goal: detail.goal || "general_fitness",
         targetRpe: extractTargetRpe(detail.description),
-        daysPerWeek: detail.days_per_week || weeklySchedule.length || 3,
-        weeklySchedule,
+        daysPerWeek: detail.days_per_week || weekSchedule.length || 3,
+        weeklySchedule: weekSchedule,
         durationWeeks: detail.duration_weeks,
         startDate,
         isActive: detail.is_active,
       })
       updateUnsavedChanges(false)
     } catch (err) {
+      if (fetchGen !== weekFetchGenRef.current) {
+        return
+      }
       setError(err instanceof Error ? err.message : "Error desconocido")
       toast({
         title: "Error",
@@ -577,22 +624,26 @@ export function WorkoutProgramEditor({
         variant: "destructive",
       })
 
-      // Fallback: programa vacío
-      setProgram({
-        name: "Nuevo Programa de Entrenamientos",
-        description: "Programa personalizado para el usuario",
-        level: "beginner",
-        goal: "general_fitness",
-        targetRpe: "",
-        daysPerWeek: 3,
-        weeklySchedule: [],
-        durationWeeks: 4,
-        isActive: true,
-      })
-      updateUnsavedChanges(false)
+      if (!merge) {
+        // Fallback: programa vacío
+        setProgram({
+          name: "Nuevo Programa de Entrenamientos",
+          description: "Programa personalizado para el usuario",
+          level: "beginner",
+          goal: "general_fitness",
+          targetRpe: "",
+          daysPerWeek: 3,
+          weeklySchedule: [],
+          durationWeeks: 4,
+          isActive: true,
+        })
+        updateUnsavedChanges(false)
+      }
     } finally {
-      hasLoadedOnceRef.current = true
-      if (showBlockingLoader) setLoading(false)
+      if (fetchGen === weekFetchGenRef.current) {
+        hasLoadedOnceRef.current = true
+        if (showBlockingLoader) setLoading(false)
+      }
     }
   }
 
@@ -751,6 +802,9 @@ export function WorkoutProgramEditor({
     setActiveWeek(nextWeek)
     setClipboardTargetWeek(String(nextWeek))
     setSelectedCalendarDate(getDateForProgramWeekDay(nextWeek, activeDayName))
+    if (program?.id && !loadedWeeksRef.current.has(nextWeek)) {
+      void loadUserProgram({ silent: true, week: nextWeek, merge: true })
+    }
   }
 
   const updateWorkoutDay = (dayKey: string, updates: Partial<WorkoutDay>) => {
@@ -1032,6 +1086,14 @@ export function WorkoutProgramEditor({
           ? data.detail
           : `Semana ${sourceWeek} copiada sobre ${targetWeeks.map((week) => `S${week}`).join(", ")}.`,
       })
+      // Recargar semanas destino en memoria (invalidate cache)
+      loadedWeeksRef.current = new Set([1])
+      for (const week of targetWeeks) {
+        await loadUserProgram({ silent: true, week, merge: true })
+      }
+      if (activeWeek !== 1 && !targetWeeks.includes(activeWeek)) {
+        await loadUserProgram({ silent: true, week: activeWeek, merge: true })
+      }
     } catch (error) {
       toast({
         title: "❌ Error al copiar semana",
@@ -1208,6 +1270,22 @@ export function WorkoutProgramEditor({
       return
     }
     const silent = options.silent === true
+
+    // No guardar una semana que aún no se ha cargado (evita payload vacío que borre datos)
+    if (program.id && !loadedWeeksRef.current.has(activeWeek)) {
+      if (silent) {
+        return
+      }
+      await loadUserProgram({ silent: true, week: activeWeek, merge: true })
+      if (!loadedWeeksRef.current.has(activeWeek)) {
+        toast({
+          title: "Semana no cargada",
+          description: `Espera a que cargue la semana ${activeWeek} antes de guardar.`,
+          variant: "destructive",
+        })
+        return
+      }
+    }
 
     try {
       if (silent) {

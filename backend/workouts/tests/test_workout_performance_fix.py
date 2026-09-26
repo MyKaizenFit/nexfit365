@@ -338,6 +338,31 @@ def test_my_active_program_defaults_to_current_week(member_client, member, admin
 
 
 @pytest.mark.django_db
+def test_week_scoped_empty_payload_does_not_wipe_week(admin_client, admin_user):
+    """PATCH ?week=N con days=[] no debe borrar la semana (guarda accidental)."""
+    template, _, n_days, _ = _build_large_template_bulk(
+        weeks=4, days_per_week=2, exercises_per_day=1, admin_user=admin_user
+    )
+    assert n_days == 8
+    before = template.days.count()
+    week2_notes = list(
+        template.days.filter(day_number__in=[8, 9]).values_list("exercises__notes", flat=True)
+    )
+
+    response = admin_client.patch(
+        f"/api/admin/workouts/programs/{template.id}/?week=2",
+        {"days": []},
+        format="json",
+    )
+    assert response.status_code == 200
+    assert template.days.count() == before
+    after_notes = list(
+        template.days.filter(day_number__in=[8, 9]).values_list("exercises__notes", flat=True)
+    )
+    assert after_notes == week2_notes
+
+
+@pytest.mark.django_db
 def test_mutation_serializer_omits_nested_exercises(admin_user):
     template, _ = _build_multiweek_template(weeks=2, days_per_week=2, exercises_per_day=2, admin_user=admin_user)
     data = AdminWorkoutProgramMutationSerializer(template).data

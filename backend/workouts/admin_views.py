@@ -345,7 +345,10 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
         elif days_data == [] and week_day_numbers is None:
             program.days.all().delete()
         elif days_data == [] and week_day_numbers is not None:
-            program.days.filter(day_number__in=week_day_numbers).delete()
+            # Payload vacío + week_scope: no-op. Evita borrar una semana por un
+            # save del frontend que aún no había cargado esa semana.
+            # Para vaciar: enviar los días de la semana (p.ej. rest) explícitamente.
+            pass
 
         weekly_training_days = DefaultWorkoutAssignmentService.infer_weekly_training_days(program)
         if weekly_training_days and program.days_per_week != weekly_training_days:

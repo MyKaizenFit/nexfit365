@@ -169,6 +169,7 @@ export const WorkoutTemplatePlanEditor = forwardRef<
   const calendarPlanAnchorRef = useRef(getMondayOfWeek(new Date()).toISOString().slice(0, 10))
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isAutosavingRef = useRef(false)
+  const loadPlanGenRef = useRef(0)
   const [workoutClipboard, setWorkoutClipboard] = useState<TemplateClipboard>(null)
   const [showWeekCopyDialog, setShowWeekCopyDialog] = useState(false)
   const [weekCopySource, setWeekCopySource] = useState("1")
@@ -470,6 +471,7 @@ export const WorkoutTemplatePlanEditor = forwardRef<
       return
     }
 
+    const loadGen = ++loadPlanGenRef.current
     setLoading(true)
     try {
       const mapIncomingDays = (incomingDays: any[]): WorkoutDayDraft[] =>
@@ -494,12 +496,14 @@ export const WorkoutTemplatePlanEditor = forwardRef<
 
       // Cargar por semanas para evitar payloads de 4MB en macrociclos anuales
       const first = await fetchJsonWithAuth(`admin/workouts/programs/${resolvedPlanId}/?week=1`)
+      if (loadGen !== loadPlanGenRef.current) return
       const duration = Math.max(1, first.duration_weeks || 1)
       setPlanDurationWeeks(duration)
 
       const mapped: WorkoutDayDraft[] = mapIncomingDays(first.days || [])
       const BATCH = 4
       for (let start = 2; start <= duration; start += BATCH) {
+        if (loadGen !== loadPlanGenRef.current) return
         const weekNums = []
         for (let w = start; w < start + BATCH && w <= duration; w += 1) {
           weekNums.push(w)
@@ -507,10 +511,13 @@ export const WorkoutTemplatePlanEditor = forwardRef<
         const batchResults = await Promise.all(
           weekNums.map((w) => fetchJsonWithAuth(`admin/workouts/programs/${resolvedPlanId}/?week=${w}`))
         )
+        if (loadGen !== loadPlanGenRef.current) return
         for (const data of batchResults) {
           mapped.push(...mapIncomingDays(data.days || []))
         }
       }
+
+      if (loadGen !== loadPlanGenRef.current) return
 
       const daysByNumber = new Map<number, WorkoutDayDraft>()
       mapped.forEach((day) => { daysByNumber.set(day.day_number, day) })
@@ -538,6 +545,7 @@ export const WorkoutTemplatePlanEditor = forwardRef<
       setActiveWeek(1)
       updateUnsavedChanges(false)
     } catch (e) {
+      if (loadGen !== loadPlanGenRef.current) return
       const message = e instanceof Error ? e.message : "No se pudo cargar el plan"
       toast({
         title: message.includes("404") ? "Rutina no encontrada" : "❌ Error",
@@ -550,7 +558,9 @@ export const WorkoutTemplatePlanEditor = forwardRef<
         await onSaved()
       }
     } finally {
-      setLoading(false)
+      if (loadGen === loadPlanGenRef.current) {
+        setLoading(false)
+      }
     }
   }
 
