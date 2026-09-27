@@ -364,6 +364,8 @@ export function WorkoutDashboardEnhanced() {
 
   // Obtener progreso semanal
   const weeklyProgress = getWeeklyProgress()
+  const getTodaysWorkoutRef = useRef(getTodaysWorkout)
+  getTodaysWorkoutRef.current = getTodaysWorkout
 
   // Función para verificar si los entrenamientos del día ya están completados
   const checkCompletedWorkouts = useCallback(async () => {
@@ -384,8 +386,9 @@ export function WorkoutDashboardEnhanced() {
       return logDate.toDateString() === today.toDateString()
     })
 
-    // Solo días de la semana cargada / relevantes para hoy (evita 400 por URI demasiado larga)
-    const todaysPlanDay = getTodaysWorkout()
+    // Solo días de la semana cargada / relevantes para hoy (evita 400 por URI demasiado larga).
+    // Ref: getTodaysWorkout no puede ser dependencia; una función nueva por render re-dispara el efecto.
+    const todaysPlanDay = getTodaysWorkoutRef.current()
     const candidateDays = todaysPlanDay
       ? [todaysPlanDay, ...activeProgram.days.filter((d) => d.id !== todaysPlanDay.id)].slice(0, 14)
       : activeProgram.days.slice(0, 14)
@@ -443,7 +446,7 @@ export function WorkoutDashboardEnhanced() {
     }
 
     setTodayWorkoutCompleted(completed)
-  }, [activeProgram, workoutLogs, isAuthenticated, getTodaysWorkout])
+  }, [activeProgram, workoutLogs, isAuthenticated])
 
   // Limpiar estado local cuando cambie el plan para evitar IDs obsoletos
   useEffect(() => {

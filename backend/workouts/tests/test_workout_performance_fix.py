@@ -338,6 +338,69 @@ def test_my_active_program_defaults_to_current_week(member_client, member, admin
 
 
 @pytest.mark.django_db
+def test_unscoped_single_week_payload_does_not_delete_other_weeks(admin_client, admin_user):
+    """PATCH sin ?week= con días de una sola semana no borra el resto del macrociclo."""
+    template, exercises = _build_multiweek_template(
+        weeks=8, days_per_week=2, exercises_per_day=1, admin_user=admin_user
+    )
+    before = template.days.count()
+    assert before == 16
+    week1_notes = template.days.get(day_number=1).exercises.get().notes
+
+    response = admin_client.patch(
+        f"/api/admin/workouts/programs/{template.id}/",
+        {
+            "days": [
+                {
+                    "day_number": 29,
+                    "name": "Semana 5 editada",
+                    "is_rest_day": False,
+                    "exercises": [
+                        {"exercise_id": str(exercises[0].id), "sets": 4, "reps": "8"}
+                    ],
+                }
+            ],
+        },
+        format="json",
+    )
+    assert response.status_code == 200
+    template.refresh_from_db()
+    # La semana del payload se reemplaza (el día hermano 30 no iba en el body).
+    # El resto del macrociclo permanece.
+    assert template.days.filter(day_number__lt=29).count() == 8
+    assert template.days.filter(day_number__gte=36).count() == 6
+    assert not template.days.filter(day_number=30).exists()
+    assert template.days.get(day_number=1).exercises.get().notes == week1_notes
+    assert template.days.get(day_number=29).name == "Semana 5 editada"
+    assert template.days.count() == before - 1
+
+
+@pytest.mark.django_db
+def test_unscoped_multiweek_payload_still_replaces_omitted_days(admin_client, admin_user):
+    """Un payload con varias semanas sigue siendo un reemplazo completo."""
+    template, exercises = _build_multiweek_template(
+        weeks=2, days_per_week=2, exercises_per_day=1, admin_user=admin_user
+    )
+    exercise_id = str(exercises[0].id)
+    response = admin_client.patch(
+        f"/api/admin/workouts/programs/{template.id}/",
+        {
+            "days": [
+                {"day_number": 1, "name": "S1a", "is_rest_day": False, "exercises": [{"exercise_id": exercise_id, "sets": 3, "reps": "10"}]},
+                {"day_number": 2, "name": "S1b", "is_rest_day": False, "exercises": [{"exercise_id": exercise_id, "sets": 3, "reps": "10"}]},
+                {"day_number": 8, "name": "S2a", "is_rest_day": False, "exercises": [{"exercise_id": exercise_id, "sets": 3, "reps": "10"}]},
+            ],
+        },
+        format="json",
+    )
+    assert response.status_code == 200
+    template.refresh_from_db()
+    assert template.days.count() == 3
+    assert not template.days.filter(day_number=9).exists()
+    assert template.days.filter(day_number__in=[1, 2, 8]).count() == 3
+
+
+@pytest.mark.django_db
 def test_week_scoped_empty_payload_does_not_wipe_week(admin_client, admin_user):
     """PATCH ?week=N con days=[] no debe borrar la semana (guarda accidental)."""
     template, _, n_days, _ = _build_large_template_bulk(

@@ -772,11 +772,11 @@ export function useWorkouts() {
     )
   }
 
-  // Obtener programa activo del día actual (respeta semana del plan según start_date)
-  const getTodaysWorkout = () => {
+  // Identidad estable: si cambia en cada render, el dashboard re-pide check_today_batch en bucle.
+  const getTodaysWorkout = useCallback(() => {
     if (!activeProgram?.days?.length) return null
     return getTodaysPlanDay(activeProgram) as WorkoutDay | null
-  }
+  }, [activeProgram])
 
   // Obtener progreso semanal (usando datos del servidor)
   const [workoutStatistics, setWorkoutStatistics] = useState<WorkoutStatistics | null>(null)

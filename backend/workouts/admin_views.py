@@ -227,6 +227,33 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
             'total_pages': (total + page_size - 1) // page_size,
         })
 
+    def _scope_partial_week_payload(self, program: WorkoutProgram, days_data, week_scope: int | None):
+        """Un PATCH de una sola semana sin ?week= no puede borrar el resto del macrociclo.
+
+        Una actualización completa (días de más de una semana, o un programa que
+        solo tiene esa semana) sigue reemplazando los días ausentes.
+        """
+        if week_scope is not None or not days_data:
+            return week_scope
+        from .workout_week_utils import week_number_from_day_number
+
+        weeks = set()
+        for day in days_data:
+            if not isinstance(day, dict):
+                return week_scope
+            try:
+                number = int(day.get('day_number') or 0)
+            except (TypeError, ValueError):
+                continue
+            if number > 0:
+                weeks.add(week_number_from_day_number(number))
+        if len(weeks) != 1:
+            return None
+        only_week = next(iter(weeks))
+        if program.days.exclude(day_number__in=day_numbers_for_week(only_week)).exists():
+            return only_week
+        return None
+
     def _apply_days_payload(self, program: WorkoutProgram, days_data, *, week_scope: int | None = None):
         """
         Upsert días+ejercicios por day_number. Solo borra días ausentes del payload
@@ -545,6 +572,7 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
         program: WorkoutProgram = serializer.save()
 
         if days_data is not None:
+            week_scope = self._scope_partial_week_payload(program, days_data, week_scope)
             self._apply_days_payload(program, days_data, week_scope=week_scope)
 
         created_user_program_ids = []
