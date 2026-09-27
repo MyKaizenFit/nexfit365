@@ -440,6 +440,8 @@ export function WorkoutProgramEditor({
   const calendarPlanAnchorRef = useRef(getMondayOfWeek(new Date()).toISOString().slice(0, 10))
   const weekFetchGenRef = useRef(0)
   const loadedWeeksRef = useRef(new Set<number>())
+  const [loadedWeekNumbers, setLoadedWeekNumbers] = useState<number[]>([])
+  const [loadingWeek, setLoadingWeek] = useState<number | null>(null)
   const resolvedUserId = parsePositiveIntId(userId)
   const invalidUserId = userId != null && userId !== "" && resolvedUserId == null
 
@@ -500,6 +502,7 @@ export function WorkoutProgramEditor({
     const targetWeek = Math.max(1, options.week ?? 1)
     const merge = options.merge === true
     const fetchGen = ++weekFetchGenRef.current
+    if (merge) setLoadingWeek(targetWeek)
     const showBlockingLoader = !options.silent && !hasLoadedOnceRef.current
     try {
       if (showBlockingLoader) setLoading(true)
@@ -549,6 +552,8 @@ export function WorkoutProgramEditor({
       if (!detail) {
         if (merge) return
         loadedWeeksRef.current = new Set()
+        setLoadedWeekNumbers([])
+        setLoadingWeek(null)
         // Si no tiene programa aún, crear uno vacío en memoria
         setProgram({
           name: "Nuevo Programa de Entrenamientos",
@@ -588,6 +593,8 @@ export function WorkoutProgramEditor({
           }
         })
         loadedWeeksRef.current.add(loadedWeek)
+        setLoadedWeekNumbers((prev) => (prev.includes(loadedWeek) ? prev : [...prev, loadedWeek]))
+        setLoadingWeek((current) => (current === targetWeek ? null : current))
         return
       }
 
@@ -598,6 +605,8 @@ export function WorkoutProgramEditor({
         setSelectedCalendarDate(new Date(`${startDate}T00:00:00`))
       }
       loadedWeeksRef.current = new Set([loadedWeek])
+      setLoadedWeekNumbers([loadedWeek])
+      setLoadingWeek(null)
       setActiveWeek(loadedWeek)
       setProgram({
         id: detail.id,
@@ -642,6 +651,7 @@ export function WorkoutProgramEditor({
     } finally {
       if (fetchGen === weekFetchGenRef.current) {
         hasLoadedOnceRef.current = true
+        setLoadingWeek((current) => (current === targetWeek ? null : current))
         if (showBlockingLoader) setLoading(false)
       }
     }
@@ -784,6 +794,15 @@ export function WorkoutProgramEditor({
     setActiveWeek(week)
     setActiveDayName(dayName)
     setClipboardTargetWeek(String(week))
+    const duration = program?.durationWeeks || 1
+    if (
+      program?.id
+      && week >= 1
+      && week <= duration
+      && !loadedWeeksRef.current.has(week)
+    ) {
+      void loadUserProgram({ silent: true, week, merge: true })
+    }
   }
 
   const handleDayChipClick = (week: number, dayName: string) => {
@@ -1406,7 +1425,7 @@ export function WorkoutProgramEditor({
       if (silent) {
         setAutosaveState("saved")
       } else {
-        await loadUserProgram({ silent: true })
+        await loadUserProgram({ silent: true, week: activeWeek, merge: true })
 
         toast({
           title: "✅ Programa de entrenamientos guardado",
@@ -1823,6 +1842,7 @@ export function WorkoutProgramEditor({
                 type="button"
                 variant="outline"
                 size="sm"
+                aria-label="Mes anterior"
                 onClick={() => setCalendarMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
               >
                 <ChevronLeft className="h-4 w-4" />
@@ -1834,6 +1854,7 @@ export function WorkoutProgramEditor({
                 type="button"
                 variant="outline"
                 size="sm"
+                aria-label="Mes siguiente"
                 onClick={() => setCalendarMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
               >
                 <ChevronRight className="h-4 w-4" />
@@ -1950,7 +1971,8 @@ export function WorkoutProgramEditor({
               const programWeek = resolveProgramWeekForDate(date)
               const durationWeeks = program.durationWeeks || 4
               const isWithinPlanRange = programWeek >= 1 && programWeek <= durationWeeks
-              const dayWorkouts = isWithinPlanRange
+              const weekIsLoaded = isWithinPlanRange && loadedWeekNumbers.includes(programWeek)
+              const dayWorkouts = weekIsLoaded
                 ? program.weeklySchedule
                   .map((workoutDay, index) => ({ workoutDay, index }))
                   .filter((item) => item.workoutDay.day === dayName && getWorkoutWeekNumber(item.workoutDay, item.index) === programWeek)
@@ -1995,7 +2017,11 @@ export function WorkoutProgramEditor({
                     )}
                   </div>
                   <div className="mt-2 space-y-1">
-                    {dayWorkouts.length > 0 ? (
+                    {!isWithinPlanRange ? null : !weekIsLoaded ? (
+                      <div className="text-[10px] text-muted-foreground">
+                        {loadingWeek === programWeek ? "Cargando…" : "…"}
+                      </div>
+                    ) : dayWorkouts.length > 0 ? (
                       dayWorkouts.slice(0, 2).map((item, index) => (
                         <div key={`${item.id || item.localId || index}-${date.toISOString()}`} className="truncate rounded bg-purple-100 px-1.5 py-0.5 text-[10px] text-purple-800">
                           {item.isRestDay ? "Descanso" : `S${programWeek} · ${item.name}`}
