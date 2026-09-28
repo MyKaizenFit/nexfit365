@@ -127,8 +127,7 @@ describe('assign dialog confirmation flow', () => {
     await user.click(screen.getByRole('button', { name: 'Cancelar' }))
     expect(screen.getByTestId('status')).toHaveTextContent('cancelled')
     expect(updatePlan).toHaveBeenCalledTimes(1)
-    const firstCall = updatePlan.mock.calls[0]?.[0] as Record<string, unknown>
-    expect(firstCall).not.toHaveProperty('force_reassign')
+    expect(updatePlan).toHaveBeenCalledWith({ assigned_user_ids: [4] })
   })
 
   it('confirm sends force_reassign and replace_active_program_id', async () => {
@@ -151,7 +150,7 @@ describe('assign dialog confirmation flow', () => {
 
     await waitFor(() => expect(screen.getByTestId('status')).toHaveTextContent('created:new-1'))
     expect(updatePlan).toHaveBeenCalledTimes(2)
-    expect(updatePlan.mock.calls[1]?.[0]).toEqual({
+    expect(updatePlan).toHaveBeenLastCalledWith({
       assigned_user_ids: [4],
       force_reassign: true,
       replace_active_program_id: 'active-1',
