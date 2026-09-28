@@ -295,6 +295,22 @@ class TestWorkoutProgramViewSet:
     def test_available_templates_action(self, auth_client, template_program):
         response = auth_client.get('/api/programs/available_templates/')
         assert response.status_code == status.HTTP_200_OK
+        assert isinstance(response.data, list)
+        assert len(response.data) >= 1
+        row = next(item for item in response.data if str(item['id']) == str(template_program.id))
+        expected_fields = {
+            'id', 'name', 'description', 'difficulty', 'goal',
+            'duration_weeks', 'days_per_week', 'estimated_duration_minutes',
+            'is_system', 'is_template', 'is_active', 'location', 'days_count',
+        }
+        assert expected_fields.issubset(row.keys())
+        assert row['is_template'] is True
+        assert row['days_count'] == template_program.days.count()
+
+    def test_available_templates_unauthenticated(self, template_program):
+        client = APIClient()
+        response = client.get('/api/programs/available_templates/')
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
     def test_activate_own_program(self, auth_client, user, user_program):
         # Crear otro programa activo

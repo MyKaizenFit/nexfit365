@@ -245,6 +245,10 @@ class WorkoutProgramMinimalSerializer(EncodingFixMixin, serializers.ModelSeriali
         ]
     
     def get_days_count(self, obj) -> int:
+        # Prefer queryset annotation (see annotate_program_days_count) to avoid N+1.
+        annotated = getattr(obj, "days_count_total", None)
+        if annotated is not None:
+            return int(annotated)
         return obj.days.count()
 
 

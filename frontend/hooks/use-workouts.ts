@@ -191,26 +191,34 @@ export function useWorkouts() {
       setError(null)
       setHasAuthError(false)
 
-      // Cargar de forma secuencial para evitar rate limiting
+      // Camino crítico para pintar Entrenamientos: programa(s) + activo.
+      // available_templates no se usa en la UI de miembro y saturaba workers (prefetch profundo).
       await fetchWorkoutPrograms()
-      await new Promise(resolve => setTimeout(resolve, 200)) // Pequeño delay
+      await new Promise(resolve => setTimeout(resolve, 200))
 
       await fetchActiveProgram()
-      await new Promise(resolve => setTimeout(resolve, 200))
-
-      await fetchTemplates()
-      await new Promise(resolve => setTimeout(resolve, 200))
-
-      await fetchExercises()
-      await new Promise(resolve => setTimeout(resolve, 200))
-
-      await fetchWorkoutLogs()
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Error al cargar datos de entrenamiento'
       setError(message)
       setHasAuthError(isAuthSessionError(message))
     } finally {
       setLoading(false)
+    }
+
+    // Auxiliares: no bloquean el skeleton del programa activo.
+    if (!isAuthenticated) {
+      return
+    }
+    try {
+      await fetchExercises()
+      await new Promise(resolve => setTimeout(resolve, 200))
+      await fetchWorkoutLogs()
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Error al cargar datos auxiliares de entrenamiento'
+      if (isAuthSessionError(message)) {
+        setError(message)
+        setHasAuthError(true)
+      }
     }
   }
 
