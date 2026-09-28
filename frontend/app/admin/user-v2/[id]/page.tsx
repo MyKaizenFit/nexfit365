@@ -3,7 +3,7 @@
 export const dynamic = 'force-dynamic'
 
 import { useState, useEffect, useCallback } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import {
   ArrowLeft,
   User,
@@ -182,7 +182,11 @@ function getVisibleRoleLabel(role?: string, fallback?: string): string {
 // ============================================================================
 export default function UserDetailPageV2({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { getAuthHeaders, isAuthenticated } = useAuth()
+  const weekFromUrl = Number(searchParams.get("week"))
+  const initialWorkoutWeek =
+    Number.isFinite(weekFromUrl) && weekFromUrl >= 1 ? weekFromUrl : undefined
 
   // Estado para el userId resuelto
   const [userId, setUserId] = useState<string | null>(null)
@@ -1385,13 +1389,10 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
             {/* Editor de plan de entrenamiento */}
             <WorkoutProgramEditor
               userId={String(user.id)}
+              initialWeek={initialWorkoutWeek}
               onDirtyChange={setHasUnsavedWorkoutChanges}
               onSave={() => {
                 setHasUnsavedWorkoutChanges(false)
-                toast({
-                  title: "✅ Programa guardado",
-                  description: "El programa de entrenamientos ha sido actualizado",
-                })
               }}
             />
           </TabsContent>

@@ -396,10 +396,13 @@ export function WorkoutProgramEditor({
   userId,
   onSave,
   onDirtyChange,
+  initialWeek,
 }: {
   userId: string
   onSave: () => void
   onDirtyChange?: (hasUnsavedChanges: boolean) => void
+  /** Semana explícita (p.ej. ?week=N). Si no hay, se abre la semana actual del cliente. */
+  initialWeek?: number
 }) {
   const [program, setProgram] = useState<WorkoutProgram | null>(null)
   const [loading, setLoading] = useState(true)
@@ -409,6 +412,8 @@ export function WorkoutProgramEditor({
   const [calendarMonth, setCalendarMonth] = useState(() => new Date())
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(() => new Date())
   const [activeWeek, setActiveWeek] = useState(1)
+  /** Semana actual real del cliente (canónica del backend); null si aún no hay programa. */
+  const [clientCurrentWeek, setClientCurrentWeek] = useState<number | null>(null)
   const [activeDayName, setActiveDayName] = useState(() => getSpanishDayName(new Date()))
   const [showProgramSettings, setShowProgramSettings] = useState(false)
   const [showMonthlyCalendar, setShowMonthlyCalendar] = useState(false)
@@ -499,19 +504,28 @@ export function WorkoutProgramEditor({
       return
     }
 
-    const targetWeek = Math.max(1, options.week ?? 1)
+    // Prioridad: week explícita en options → initialWeek prop → omitir (backend = current_week).
+    const requestedWeek =
+      typeof options.week === "number" && options.week >= 1
+        ? options.week
+        : !options.merge && typeof initialWeek === "number" && initialWeek >= 1
+          ? initialWeek
+          : null
     const merge = options.merge === true
     const fetchGen = ++weekFetchGenRef.current
-    if (merge) setLoadingWeek(targetWeek)
+    if (merge && requestedWeek != null) setLoadingWeek(requestedWeek)
     const showBlockingLoader = !options.silent && !hasLoadedOnceRef.current
     try {
       if (showBlockingLoader) setLoading(true)
       setError(null)
 
       const headers = await getAuthHeaders()
-
+      const programPath =
+        requestedWeek != null
+          ? `admin/workouts/users/${parsedUserId}/program/?week=${requestedWeek}`
+          : `admin/workouts/users/${parsedUserId}/program/`
       const response = await fetch(
-        buildApiUrl(`admin/workouts/users/${parsedUserId}/program/?week=${targetWeek}`),
+        buildApiUrl(programPath),
         {
           credentials: 'include',
           headers,
@@ -554,6 +568,7 @@ export function WorkoutProgramEditor({
         loadedWeeksRef.current = new Set()
         setLoadedWeekNumbers([])
         setLoadingWeek(null)
+        setClientCurrentWeek(null)
         // Si no tiene programa aún, crear uno vacío en memoria
         setProgram({
           name: "Nuevo Programa de Entrenamientos",
@@ -572,9 +587,19 @@ export function WorkoutProgramEditor({
       }
 
       const weekSchedule = mapApiDaysToSchedule(detail.days || [])
-      const loadedWeek = Number(detail.loaded_week) || targetWeek
+      const loadedWeek = Number(detail.loaded_week) || requestedWeek || 1
+      const resolvedCurrentWeek = Number(
+        data.current_week ?? data.summary?.current_week ?? detail.current_week ?? loadedWeek,
+      )
+      if (Number.isFinite(resolvedCurrentWeek) && resolvedCurrentWeek >= 1) {
+        setClientCurrentWeek(resolvedCurrentWeek)
+      }
 
       if (merge) {
+        // Ignorar respuesta de otra semana si el admin ya cambió de semana.
+        if (requestedWeek != null && loadedWeek !== requestedWeek) {
+          return
+        }
         setProgram((current) => {
           if (!current || current.id !== detail.id) return current
           const byNumber = new Map<number, WorkoutDay>()
@@ -594,7 +619,7 @@ export function WorkoutProgramEditor({
         })
         loadedWeeksRef.current.add(loadedWeek)
         setLoadedWeekNumbers((prev) => (prev.includes(loadedWeek) ? prev : [...prev, loadedWeek]))
-        setLoadingWeek((current) => (current === targetWeek ? null : current))
+        setLoadingWeek((current) => (current === requestedWeek ? null : current))
         return
       }
 
@@ -651,7 +676,9 @@ export function WorkoutProgramEditor({
     } finally {
       if (fetchGen === weekFetchGenRef.current) {
         hasLoadedOnceRef.current = true
-        setLoadingWeek((current) => (current === targetWeek ? null : current))
+        if (requestedWeek != null) {
+          setLoadingWeek((current) => (current === requestedWeek ? null : current))
+        }
         if (showBlockingLoader) setLoading(false)
       }
     }
@@ -759,18 +786,18 @@ export function WorkoutProgramEditor({
     const sourceMessages: Record<DayBlueprintSource, string> = {
       reference: referenceProgramSource === "assigned_template"
         ? referenceProgramName
-          ? `Contenido tomado de la plantilla asignada “${referenceProgramName}”.`
-          : "Contenido tomado de la plantilla asignada al usuario."
+          ? `Borrador desde PLANTILLA de referencia “${referenceProgramName}” (aún no persistido).`
+          : "Borrador desde la plantilla de referencia (aún no persistido)."
         : referenceProgramName
-          ? `Contenido tomado del menú por defecto “${referenceProgramName}”.`
-          : "Contenido tomado del menú/plantilla definido por admin.",
-      program_week1: "Copiado desde la Semana 1 del programa actual.",
-      program_pattern: "Copiado desde un día similar ya definido en el programa.",
-      empty: "Rutina vacía creada. Añade ejercicios manualmente.",
+          ? `Borrador desde menú por defecto “${referenceProgramName}” (aún no persistido).`
+          : "Borrador desde menú/plantilla de referencia (aún no persistido).",
+      program_week1: "Copiado desde la Semana 1 del programa asignado.",
+      program_pattern: "Copiado desde un día similar ya definido en el programa asignado.",
+      empty: "Rutina vacía creada en el programa asignado. Añade ejercicios y guarda.",
     }
 
     toast({
-      title: source === "empty" ? "Rutina creada" : "Rutina creada con plantilla",
+      title: source === "reference" ? "Borrador desde plantilla (referencia)" : "Rutina creada",
       description: `Semana ${targetWeek} · ${targetDay}. ${sourceMessages[source]}`,
     })
 
@@ -1428,8 +1455,11 @@ export function WorkoutProgramEditor({
         await loadUserProgram({ silent: true, week: activeWeek, merge: true })
 
         toast({
-          title: "✅ Programa de entrenamientos guardado",
-          description: "Los cambios han sido aplicados al usuario",
+          title: `✅ Semana ${activeWeek} guardada correctamente`,
+          description:
+            clientCurrentWeek != null && clientCurrentWeek !== activeWeek
+              ? `Persistida solo la semana ${activeWeek}. El cliente está en la semana ${clientCurrentWeek}.`
+              : "Los cambios han sido aplicados al programa asignado",
         })
 
         onSave()
@@ -1567,8 +1597,8 @@ export function WorkoutProgramEditor({
           </CardTitle>
           <CardDescription>Personaliza el programa de ejercicios del usuario</CardDescription>
           <div className="text-xs text-muted-foreground">
-            {autosaveState === "saving" ? "Guardando automáticamente..." : null}
-            {autosaveState === "saved" ? "Guardado automático aplicado" : null}
+            {autosaveState === "saving" ? `Guardando semana ${activeWeek}...` : null}
+            {autosaveState === "saved" ? `Semana ${activeWeek} guardada automáticamente` : null}
             {autosaveState === "error" ? "No se pudo guardar automáticamente. Usa Guardar para reintentar." : null}
           </div>
         </CardHeader>
@@ -1672,17 +1702,34 @@ export function WorkoutProgramEditor({
             <div>
               <CardTitle className="text-base sm:text-lg">Vista semanal</CardTitle>
               <CardDescription className="text-xs sm:text-sm">
-                Toca un día para editarlo. Si está vacío, se crea al instante usando el menú admin cuando exista.
+                Toca un día para editar el programa asignado. Los huecos vacíos no muestran la plantilla como si estuviera guardada.
               </CardDescription>
-              {referenceProgramName ? (
-                <Badge variant="secondary" className="mt-2 text-[10px] font-normal">
-                  {referenceProgramSource === "assigned_template"
-                    ? `Plantilla asignada: ${referenceProgramName}`
-                    : referenceProgramSource === "default_config"
-                      ? `Menú por defecto: ${referenceProgramName}`
-                      : `Menú prioritario: ${referenceProgramName}`}
-                </Badge>
-              ) : null}
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                {clientCurrentWeek != null ? (
+                  <Badge
+                    variant={activeWeek === clientCurrentWeek ? "default" : "outline"}
+                    className="text-[10px] font-normal"
+                    data-testid="client-current-week-indicator"
+                  >
+                    {activeWeek === clientCurrentWeek
+                      ? `Semana ${activeWeek} · Actual del cliente`
+                      : `Editando semana ${activeWeek} · Actual del cliente: ${clientCurrentWeek}`}
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-[10px] font-normal">
+                    Semana {activeWeek}
+                  </Badge>
+                )}
+                {referenceProgramName ? (
+                  <Badge variant="secondary" className="text-[10px] font-normal" data-testid="reference-template-badge">
+                    {referenceProgramSource === "assigned_template"
+                      ? `Referencia (plantilla): ${referenceProgramName}`
+                      : referenceProgramSource === "default_config"
+                        ? `Referencia (menú): ${referenceProgramName}`
+                        : `Referencia: ${referenceProgramName}`}
+                  </Badge>
+                ) : null}
+              </div>
             </div>
             <Button
               type="button"
@@ -1704,17 +1751,21 @@ export function WorkoutProgramEditor({
               size="icon"
               className="h-9 w-9 shrink-0"
               disabled={activeWeek <= 1}
+              aria-label="Semana anterior"
               onClick={() => handleWeekChange(activeWeek - 1)}
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <Select value={String(activeWeek)} onValueChange={(value) => handleWeekChange(Number(value))}>
-              <SelectTrigger className="h-9 flex-1 font-semibold">
+              <SelectTrigger className="h-9 flex-1 font-semibold" data-testid="active-week-select">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {weekOptions.map((week) => (
-                  <SelectItem key={week} value={week}>Semana {week}</SelectItem>
+                  <SelectItem key={week} value={week}>
+                    Semana {week}
+                    {clientCurrentWeek != null && Number(week) === clientCurrentWeek ? " · actual" : ""}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -1723,6 +1774,7 @@ export function WorkoutProgramEditor({
               variant="outline"
               size="icon"
               className="h-9 w-9 shrink-0"
+              aria-label="Semana siguiente"
               onClick={() => handleWeekChange(activeWeek + 1)}
             >
               <ChevronRight className="h-4 w-4" />
@@ -1743,12 +1795,13 @@ export function WorkoutProgramEditor({
             {DAY_OPTIONS.map((dayName) => {
               const dayItems = getWorkoutDaysForWeekDay(program.weeklySchedule, activeWeek, dayName)
               const workoutDay = dayItems[0]?.workoutDay
-              const previewDay = workoutDay ?? getReferenceDayForSlot(referenceSchedule, activeWeek, dayName)
               const isSelected = activeDayName === dayName
-              const chipLabel = getWeekDayChipLabel(previewDay ?? undefined)
-              const isRest = Boolean(previewDay?.isRestDay)
+              // Solo el programa asignado: no pintar plantilla como si estuviera persistida.
+              const chipLabel = getWeekDayChipLabel(workoutDay)
+              const isRest = Boolean(workoutDay?.isRestDay)
               const isEmpty = dayItems.length === 0
-              const isPreview = isEmpty && Boolean(previewDay)
+              const referencePreview =
+                isEmpty ? getReferenceDayForSlot(referenceSchedule, activeWeek, dayName) : null
 
               return (
                 <button
@@ -1761,7 +1814,6 @@ export function WorkoutProgramEditor({
                       ? "border-purple-500 bg-purple-50 shadow-sm ring-1 ring-purple-200"
                       : "border-slate-200 bg-white hover:border-purple-300 hover:bg-purple-50/50",
                     isRest && !isSelected && "bg-slate-50",
-                    isPreview && !isSelected && "border-dashed border-purple-200 bg-purple-50/30",
                   )}
                 >
                   <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -1769,20 +1821,20 @@ export function WorkoutProgramEditor({
                   </div>
                   <div className={cn(
                     "mt-1 text-xs font-medium leading-tight line-clamp-2 min-h-[2rem]",
-                    isEmpty && !isPreview ? "text-muted-foreground" : isRest ? "text-slate-600" : "text-purple-900",
+                    isEmpty ? "text-muted-foreground" : isRest ? "text-slate-600" : "text-purple-900",
                   )}>
-                    {chipLabel}
+                    {isEmpty ? "Sin rutina" : chipLabel}
                   </div>
-                  {isEmpty && !isPreview ? (
+                  {isEmpty ? (
                     <Plus className="h-3.5 w-3.5 mt-1 text-purple-600" />
                   ) : isRest ? (
                     <Clock className="h-3.5 w-3.5 mt-1 text-slate-400" />
                   ) : (
                     <Dumbbell className="h-3.5 w-3.5 mt-1 text-purple-500" />
                   )}
-                  {isPreview ? (
-                    <span className="mt-1 block text-[9px] text-purple-600/80">
-                      {referenceProgramSource === "assigned_template" ? "Plantilla" : "Menú"}
+                  {referencePreview ? (
+                    <span className="mt-1 block text-[9px] text-amber-700/90" title="Solo referencia; no está en el programa asignado">
+                      Ref. disponible
                     </span>
                   ) : null}
                 </button>
@@ -2043,10 +2095,18 @@ export function WorkoutProgramEditor({
       <div className="space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h3 className="text-lg font-semibold">Semana {activeWeek} · {activeDayName}</h3>
+            <h3 className="text-lg font-semibold">
+              Semana {activeWeek} · {activeDayName}
+              {clientCurrentWeek != null && activeWeek === clientCurrentWeek ? (
+                <span className="ml-2 text-sm font-normal text-emerald-700">Actual del cliente</span>
+              ) : null}
+            </h3>
             <p className="text-sm text-muted-foreground">
+              {clientCurrentWeek != null && activeWeek !== clientCurrentWeek
+                ? `Editando una semana distinta a la actual del cliente (semana ${clientCurrentWeek}). `
+                : ""}
               {selectedWorkoutDays.length === 0
-                ? "Toca el día arriba o usa el botón para crear la rutina"
+                ? "Toca el día arriba o usa el botón para crear la rutina del programa asignado"
                 : selectedWorkoutDays[0]?.workoutDay.isRestDay
                   ? "Día de descanso"
                   : `${selectedWorkoutDays[0]?.workoutDay.exercises.length ?? 0} ejercicios`}
@@ -2081,14 +2141,38 @@ export function WorkoutProgramEditor({
         {selectedWorkoutDays.length === 0 && (
           <Card className="border-dashed">
             <CardContent className="p-5 text-center text-sm text-muted-foreground space-y-3">
-              <p>No hay rutina para Semana {activeWeek} · {activeDayName}.</p>
+              <p>
+                No hay rutina persistida en el programa asignado para Semana {activeWeek} · {activeDayName}.
+              </p>
+              {(() => {
+                const refDay = getReferenceDayForSlot(referenceSchedule, activeWeek, activeDayName)
+                if (!refDay || refDay.isRestDay) return null
+                const firstEx = refDay.exercises?.[0]?.name
+                return (
+                  <div
+                    className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-left text-xs text-amber-900"
+                    data-testid="reference-day-preview"
+                  >
+                    <div className="font-semibold uppercase tracking-wide text-[10px] text-amber-700">
+                      Solo plantilla / referencia
+                    </div>
+                    <div className="mt-1">
+                      {refDay.name || "Entrenamiento de referencia"}
+                      {firstEx ? ` · p.ej. ${firstEx}` : ""}
+                    </div>
+                    <p className="mt-1 text-amber-800/80">
+                      No forma parte del programa asignado hasta que lo crees y guardes.
+                    </p>
+                  </div>
+                )
+              })()}
               {workoutClipboard ? (
                 <Button type="button" variant="secondary" size="sm" onClick={() => pasteClipboardToSelectedDate(activeWeek)}>
                   <ClipboardPaste className="h-3.5 w-3.5 mr-2" />
                   Pegar copiado aquí
                 </Button>
               ) : (
-                <p className="text-xs">Toca el día en la franja superior para crearlo al instante.</p>
+                <p className="text-xs">Toca el día arriba o «Crear entrenamiento» para materializarlo en el programa asignado.</p>
               )}
             </CardContent>
           </Card>

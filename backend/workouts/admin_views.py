@@ -708,11 +708,15 @@ def admin_user_program(request, user_id: int):
         })
 
     from .query_utils import resolve_program_current_week
-    loaded_week = week or resolve_program_current_week(program)
+
+    # current_week = semana real del cliente; loaded_week = la pedida o la actual.
+    current_week = resolve_program_current_week(program)
+    loaded_week = week or current_week
     program = prefetch_workout_program_with_days(program, week=loaded_week) or program
     serializer = AdminWorkoutProgramSerializer(program)
     program_data = dict(serializer.data)
     program_data['loaded_week'] = loaded_week
+    program_data['current_week'] = current_week
     program_data['days_count'] = WorkoutDay.objects.filter(program_id=program.pk).count()
 
     reference_program, reference_source = resolve_reference_workout_program(user, program)
@@ -726,6 +730,7 @@ def admin_user_program(request, user_id: int):
         'program': program_data,
         'reference_program': reference_payload,
         'reference_program_source': reference_source,
+        'current_week': current_week,
         'summary': {
             'days_per_week': program.days_per_week,
             'duration_weeks': program.duration_weeks,
@@ -733,6 +738,7 @@ def admin_user_program(request, user_id: int):
             'training_days': program.training_days,
             'is_active': program.is_active,
             'loaded_week': loaded_week,
+            'current_week': current_week,
         }
     })
 

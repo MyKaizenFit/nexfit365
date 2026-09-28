@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { toast } from '@/hooks/use-toast'
 import { WorkoutProgramEditor } from '../workout-program-editor'
 
 jest.mock('@/hooks/use-toast', () => ({
@@ -16,6 +17,7 @@ const PROGRAM_ID = '972bd29c-eb3d-48e8-bfb7-f71276937fb4'
 type DayFixture = {
   day_number: number
   name: string
+  exerciseName?: string
 }
 
 function jsonResponse(body: unknown, status = 200) {
@@ -27,13 +29,20 @@ function jsonResponse(body: unknown, status = 200) {
   }
 }
 
-function day(dayNumber: number, name: string): DayFixture {
-  return { day_number: dayNumber, name }
+function day(dayNumber: number, name: string, exerciseName = 'Sentadilla'): DayFixture {
+  return { day_number: dayNumber, name, exerciseName }
 }
 
-function programBody(week: number, days: DayFixture[], durationWeeks: number, startDate: string) {
+function programBody(
+  week: number,
+  days: DayFixture[],
+  durationWeeks: number,
+  startDate: string,
+  currentWeek: number,
+) {
   return {
     user_id: 21,
+    current_week: currentWeek,
     program: {
       id: PROGRAM_ID,
       name: 'Plan test',
@@ -45,15 +54,23 @@ function programBody(week: number, days: DayFixture[], durationWeeks: number, st
       start_date: startDate,
       is_active: true,
       loaded_week: week,
+      current_week: currentWeek,
       days: days.map((item) => ({
         id: `day-${item.day_number}`,
         day_number: item.day_number,
         name: item.name,
         is_rest_day: false,
-        exercises: [{ id: `ex-${item.day_number}`, exercise_id: 'ex-1', name: 'Sentadilla', sets: 3, reps: '10' }],
+        exercises: [{
+          id: `ex-${item.day_number}`,
+          exercise_id: 'ex-1',
+          name: item.exerciseName || 'Sentadilla',
+          sets: 3,
+          reps: '10',
+        }],
       })),
     },
     reference_program: null,
+    summary: { current_week: currentWeek, loaded_week: week },
   }
 }
 
@@ -61,7 +78,13 @@ function installFetch(options: {
   durationWeeks: number
   startDate: string
   daysByWeek: Record<number, DayFixture[]>
+  currentWeek?: number
+  referenceProgram?: {
+    name: string
+    days: Array<{ day_number: number; name: string; exerciseName: string }>
+  } | null
 }) {
+  const currentWeek = options.currentWeek ?? 1
   const requests: { url: string; method: string }[] = []
   global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input)
@@ -73,9 +96,31 @@ function installFetch(options: {
     if (method === 'PATCH') {
       return jsonResponse({ id: PROGRAM_ID, days: [] })
     }
-    const week = Number(new URLSearchParams(url.split('?')[1] || '').get('week') || '1')
+    const weekParam = new URLSearchParams(url.split('?')[1] || '').get('week')
+    const week = weekParam != null ? Number(weekParam) : currentWeek
     const days = options.daysByWeek[week] || []
-    return jsonResponse(programBody(week, days, options.durationWeeks, options.startDate))
+    const body = programBody(week, days, options.durationWeeks, options.startDate, currentWeek)
+    if (options.referenceProgram) {
+      body.reference_program = {
+        id: 'ref-template-id',
+        name: options.referenceProgram.name,
+        days: options.referenceProgram.days.map((item) => ({
+          id: `ref-day-${item.day_number}`,
+          day_number: item.day_number,
+          name: item.name,
+          is_rest_day: false,
+          exercises: [{
+            id: `ref-ex-${item.day_number}`,
+            exercise_id: 'ref-ex',
+            name: item.exerciseName,
+            sets: 3,
+            reps: '12',
+          }],
+        })),
+      } as any
+      ;(body as any).reference_program_source = 'assigned_template'
+    }
+    return jsonResponse(body)
   }) as jest.Mock
   return requests
 }
@@ -147,11 +192,104 @@ describe('editor de semanas del programa de usuario', () => {
     jest.clearAllMocks()
   })
 
-  it('carga solo la semana 1, distingue no cargada de vacía, y al guardar conserva las semanas ya pedidas', async () => {
+  it('abre por defecto la semana actual del cliente (sin ?week=) y muestra el indicador', async () => {
+    installFetch({
+      durationWeeks: 12,
+      startDate: '2026-08-31',
+      currentWeek: 2,
+      daysByWeek: {
+        2: [day(8, 'Lunes W2', 'Hip thrust')],
+        9: [day(57, 'Lunes W9', 'Elevación lateral')],
+      },
+    })
+
+    render(<WorkoutProgramEditor userId="21" onSave={jest.fn()} />)
+
+    await expectWorkoutVisible('Hip thrust')
+    expect(screen.queryByText('Elevación lateral')).not.toBeInTheDocument()
+    expect(screen.getByTestId('client-current-week-indicator')).toHaveTextContent(/Semana 2.*Actual del cliente/)
+
+    const initialGets = (global.fetch as jest.Mock).mock.calls
+      .map(([input, init]: [RequestInfo, RequestInit?]) => ({
+        url: String(input),
+        method: ((init?.method as string) || 'GET').toUpperCase(),
+      }))
+      .filter((r) => r.method === 'GET' && r.url.includes('/program'))
+    expect(initialGets.some((r) => r.url.includes('users/21/program/') && !r.url.includes('week='))).toBe(true)
+    expect(initialGets.some((r) => r.url.includes('week=9'))).toBe(false)
+  })
+
+  it('respeta initialWeek explícita frente a la semana actual del cliente', async () => {
+    installFetch({
+      durationWeeks: 12,
+      startDate: '2026-08-31',
+      currentWeek: 2,
+      daysByWeek: {
+        2: [day(8, 'Lunes W2', 'Hip thrust')],
+        9: [day(57, 'Lunes W9', 'Elevación lateral')],
+      },
+    })
+
+    render(<WorkoutProgramEditor userId="21" initialWeek={9} onSave={jest.fn()} />)
+
+    await expectWorkoutVisible('Elevación lateral')
+    expect(screen.getByTestId('client-current-week-indicator')).toHaveTextContent(/Editando semana 9/)
+    expect(screen.getByTestId('client-current-week-indicator')).toHaveTextContent(/Actual del cliente: 2/)
+  })
+
+  it('al guardar muestra toast con la semana del PATCH y no descarga el macrociclo', async () => {
+    const user = userEvent.setup()
+    const requests = installFetch({
+      durationWeeks: 12,
+      startDate: '2026-08-31',
+      currentWeek: 2,
+      daysByWeek: {
+        2: [day(8, 'Lunes W2', 'Hip thrust')],
+      },
+    })
+
+    render(<WorkoutProgramEditor userId="21" onSave={jest.fn()} />)
+    await expectWorkoutVisible('Hip thrust')
+
+    await user.click(screen.getByRole('button', { name: 'Guardar' }))
+    await waitFor(() => {
+      const patches = weekRequests(requests, 'PATCH')
+      expect(patches.some((request) => request.url.includes('week=2'))).toBe(true)
+    })
+    expect(toast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: expect.stringMatching(/Semana 2 guardada/),
+      }),
+    )
+    expect(hasFullMacrocycleRequest(requests)).toBe(false)
+  })
+
+  it('no pinta ejercicios de la plantilla como si fueran del programa asignado', async () => {
+    installFetch({
+      durationWeeks: 4,
+      startDate: '2026-08-31',
+      currentWeek: 1,
+      daysByWeek: {
+        1: [day(1, 'Lunes asignado', 'Hip thrust')],
+      },
+      referenceProgram: {
+        name: 'Plantilla Base',
+        days: [{ day_number: 1, name: 'Lunes plantilla', exerciseName: 'Elevación lateral' }],
+      },
+    })
+
+    render(<WorkoutProgramEditor userId="21" onSave={jest.fn()} />)
+    await expectWorkoutVisible('Hip thrust')
+    expect(screen.queryByText('Elevación lateral')).not.toBeInTheDocument()
+    expect(screen.getByTestId('reference-template-badge')).toHaveTextContent(/Referencia \(plantilla\)/)
+  })
+
+  it('carga solo la semana pedida, marca vacías y al guardar conserva las semanas ya pedidas', async () => {
     const user = userEvent.setup()
     const requests = installFetch({
       durationWeeks: 8,
       startDate: '2026-08-31',
+      currentWeek: 1,
       daysByWeek: {
         1: [day(1, 'Lunes W1')],
         4: [day(22, 'Lunes W4')],
@@ -164,7 +302,7 @@ describe('editor de semanas del programa de usuario', () => {
 
     await expectWorkoutVisible('Lunes W1')
     const initialGets = weekRequests(requests).map((request) => request.url)
-    expect(initialGets.some((url) => url.includes('week=1'))).toBe(true)
+    expect(initialGets.some((url) => url.includes('users/21/program/') && !url.includes('week='))).toBe(true)
     expect(initialGets.some((url) => url.includes('week=4'))).toBe(false)
     expect(hasFullMacrocycleRequest(requests)).toBe(false)
 
@@ -193,6 +331,11 @@ describe('editor de semanas del programa de usuario', () => {
       const patches = weekRequests(requests, 'PATCH')
       expect(patches.some((request) => request.url.includes('week=5'))).toBe(true)
     })
+    expect(toast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: expect.stringMatching(/Semana 5 guardada/),
+      }),
+    )
     const getsAfterSave = weekRequests(requests).map((request) => request.url)
     expect(getsAfterSave.filter((url) => url.includes('week=5')).length).toBeGreaterThanOrEqual(2)
     expect(hasFullMacrocycleRequest(requests)).toBe(false)
@@ -221,6 +364,7 @@ describe('editor de semanas del programa de usuario', () => {
     const requests = installFetch({
       durationWeeks: 52,
       startDate: '2026-09-21',
+      currentWeek: 1,
       daysByWeek: {
         1: [day(1, 'Anual W1')],
         20: [day(134, 'Anual W20')],
@@ -245,7 +389,52 @@ describe('editor de semanas del programa de usuario', () => {
     await expectWorkoutVisible('Anual W52')
 
     const weeks = requestedWeeks(requests)
-    expect(weeks).toEqual(['1', '20', '52'])
+    expect(weeks).toEqual([null, '20', '52'])
     expect(hasFullMacrocycleRequest(requests)).toBe(false)
   }, 30000)
+
+  it('ignora una respuesta merge de otra semana si el admin ya cambió de semana', async () => {
+    let resolveWeek3: (value: unknown) => void = () => {}
+    const slowWeek3 = new Promise<unknown>((resolve) => {
+      resolveWeek3 = resolve
+    })
+
+    const requests: { url: string; method: string }[] = []
+    global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = (init?.method || 'GET').toUpperCase()
+      requests.push({ url, method })
+      if (url.includes('workout-logs')) return jsonResponse({ logs: [] })
+      if (method === 'PATCH') return jsonResponse({ id: PROGRAM_ID, days: [] })
+
+      const weekParam = new URLSearchParams(url.split('?')[1] || '').get('week')
+      const week = weekParam != null ? Number(weekParam) : 2
+      if (week === 3) {
+        await slowWeek3
+        return jsonResponse(programBody(3, [day(15, 'Lunes W3', 'Press banca')], 8, '2026-08-31', 2))
+      }
+      if (week === 2) {
+        return jsonResponse(programBody(2, [day(8, 'Lunes W2', 'Hip thrust')], 8, '2026-08-31', 2))
+      }
+      return jsonResponse(programBody(week, [day((week - 1) * 7 + 1, `Lunes W${week}`)], 8, '2026-08-31', 2))
+    }) as jest.Mock
+
+    const user = userEvent.setup()
+    render(<WorkoutProgramEditor userId="21" onSave={jest.fn()} />)
+    await expectWorkoutVisible('Hip thrust')
+
+    // Navegar a semana 3 (fetch lento) y luego volver a 2 antes de que responda.
+    await user.click(screen.getByRole('button', { name: 'Semana siguiente' }))
+    expect(requests.some((r) => r.url.includes('week=3'))).toBe(true)
+    await user.click(screen.getByRole('button', { name: 'Semana anterior' }))
+
+    resolveWeek3(true)
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Hip thrust/).length).toBeGreaterThan(0)
+    })
+    // La respuesta tardía de semana 3 no debe pisar la semana 2 seleccionada.
+    expect(screen.queryByText('Press banca')).not.toBeInTheDocument()
+    expect(screen.getByTestId('client-current-week-indicator')).toHaveTextContent(/Semana 2/)
+  })
 })
