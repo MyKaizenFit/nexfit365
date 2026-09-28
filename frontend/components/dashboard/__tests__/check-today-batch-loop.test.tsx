@@ -91,8 +91,9 @@ describe('check_today_batch', () => {
     const { rerender } = render(<WorkoutDashboardEnhanced />)
     await screen.findByText(/Plan Nuria/, {}, { timeout: 5000 })
     await waitFor(() => expect(checkTodayCount()).toBeGreaterThan(0), { timeout: 5000 })
+    // Esperar a que Strict Mode / efectos iniciales terminen antes de fijar la baseline.
+    await new Promise((resolve) => setTimeout(resolve, 800))
     const afterLoad = checkTodayCount()
-    // 1 en load único; 2 si React Strict Mode monta dos veces. Lo crítico: no crecer en rerender.
     expect(afterLoad).toBeGreaterThanOrEqual(1)
     expect(afterLoad).toBeLessThanOrEqual(2)
 
@@ -100,5 +101,5 @@ describe('check_today_batch', () => {
     await new Promise((resolve) => setTimeout(resolve, 400))
     expect(checkTodayCount()).toBe(afterLoad)
     expect(screen.getByText(/Plan Nuria/)).toBeInTheDocument()
-  })
+  }, 15000)
 })
