@@ -922,6 +922,87 @@ class TestAdminUserProgram:
         assert response.data['reference_program']['id'] == str(assigned_template.id)
         assert response.data['reference_program_source'] == 'assigned_template'
 
+    def test_get_user_program_defaults_to_current_week(self, admin_client, regular_user, exercise):
+        from datetime import date, datetime, timedelta, timezone as dt_timezone
+
+        from freezegun import freeze_time
+
+        with freeze_time(datetime(2026, 9, 28, 12, 0, tzinfo=dt_timezone.utc)):
+            program = WorkoutProgram.objects.create(
+                name='Programa multi-semana',
+                user=regular_user,
+                is_active=True,
+                duration_weeks=12,
+                days_per_week=2,
+                start_date=date(2026, 9, 14),  # lunes; hoy = 28 → semana 3
+            )
+            for week in (1, 2, 3, 9):
+                day_number = (week - 1) * 7 + 1
+                day = WorkoutDay.objects.create(
+                    program=program,
+                    name=f'Día W{week}',
+                    day_number=day_number,
+                    day_of_week='monday',
+                    order_index=week,
+                )
+                WorkoutDayExercise.objects.create(
+                    workout_day=day,
+                    exercise=exercise,
+                    sets=3,
+                    reps='10',
+                    order_index=1,
+                )
+
+            response = admin_client.get(f'/api/admin/workouts/users/{regular_user.id}/program/')
+            assert response.status_code == status.HTTP_200_OK
+            assert response.data['current_week'] == 3
+            assert response.data['program']['current_week'] == 3
+            assert response.data['program']['loaded_week'] == 3
+            assert response.data['summary']['current_week'] == 3
+            day_numbers = {d['day_number'] for d in response.data['program']['days']}
+            assert day_numbers == {15}
+            assert {d['name'] for d in response.data['program']['days']} == {'Día W3'}
+
+    def test_get_user_program_week_param_overrides_current_week(self, admin_client, regular_user, exercise):
+        from datetime import date, datetime, timezone as dt_timezone
+
+        from freezegun import freeze_time
+
+        with freeze_time(datetime(2026, 9, 28, 12, 0, tzinfo=dt_timezone.utc)):
+            program = WorkoutProgram.objects.create(
+                name='Programa multi-semana',
+                user=regular_user,
+                is_active=True,
+                duration_weeks=12,
+                days_per_week=2,
+                start_date=date(2026, 9, 14),
+            )
+            for week in (2, 9):
+                day_number = (week - 1) * 7 + 1
+                day = WorkoutDay.objects.create(
+                    program=program,
+                    name=f'Día W{week}',
+                    day_number=day_number,
+                    day_of_week='monday',
+                    order_index=week,
+                )
+                WorkoutDayExercise.objects.create(
+                    workout_day=day,
+                    exercise=exercise,
+                    sets=3,
+                    reps='10',
+                    order_index=1,
+                )
+
+            response = admin_client.get(f'/api/admin/workouts/users/{regular_user.id}/program/?week=9')
+            assert response.status_code == status.HTTP_200_OK
+            assert response.data['current_week'] == 3
+            assert response.data['program']['loaded_week'] == 9
+            assert response.data['program']['current_week'] == 3
+            day_numbers = {d['day_number'] for d in response.data['program']['days']}
+            assert day_numbers == {57}
+            assert {d['name'] for d in response.data['program']['days']} == {'Día W9'}
+
     def test_requires_admin(self, regular_user):
         client = APIClient()
         client.force_authenticate(user=regular_user)
