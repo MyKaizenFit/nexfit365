@@ -92,7 +92,9 @@ describe('check_today_batch', () => {
     await screen.findByText(/Plan Nuria/, {}, { timeout: 5000 })
     await waitFor(() => expect(checkTodayCount()).toBeGreaterThan(0), { timeout: 5000 })
     const afterLoad = checkTodayCount()
-    expect(afterLoad).toBe(2)
+    // 1 en load único; 2 si React Strict Mode monta dos veces. Lo crítico: no crecer en rerender.
+    expect(afterLoad).toBeGreaterThanOrEqual(1)
+    expect(afterLoad).toBeLessThanOrEqual(2)
 
     for (let i = 0; i < 10; i += 1) rerender(<WorkoutDashboardEnhanced />)
     await new Promise((resolve) => setTimeout(resolve, 400))
