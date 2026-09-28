@@ -1,16 +1,19 @@
 """
 Configuración de pruebas para Django
 """
+import os
 from backend.settings import *
 from datetime import timedelta
 
-# Usar base de datos en memoria para pruebas
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': ':memory:',
+# SQLite en memoria por defecto (rápido). Opt-in a Postgres real:
+# USE_POSTGRES_FOR_TESTS=True (p. ej. tests de concurrencia con select_for_update).
+if os.getenv("USE_POSTGRES_FOR_TESTS", "False") != "True":
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': ':memory:',
+        }
     }
-}
 
 # Cache local en memoria para pruebas (requerida para throttling)
 CACHES = {

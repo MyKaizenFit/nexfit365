@@ -13,6 +13,11 @@ import { groupDaysByWeek, slotInWeekFromDayNumber, weekNumberFromDayNumber } fro
 import { formatInvalidIdMessage, isValidWorkoutPlanId } from "@/lib/admin-id-utils"
 import { isExcelFile, formatImportRequestError, getWorkoutImportConfig } from "@/lib/workout-import-errors"
 import {
+  buildForceReassignPayload,
+  isTemplateAlreadyAssignedError,
+  shouldIncludeAssignedUserIdsOnSave,
+} from "@/lib/workout-assignment"
+import {
   Dumbbell,
   Plus,
   Search,
@@ -272,6 +277,8 @@ export function WorkoutPlanManagement() {
   const [assignUserSourceId, setAssignUserSourceId] = useState<string | null>(null)
   const [assignUserTargetId, setAssignUserTargetId] = useState<string>("none")
   const [assigningToUser, setAssigningToUser] = useState(false)
+  const [showReassignConfirmDialog, setShowReassignConfirmDialog] = useState(false)
+  const [pendingReassignActiveProgramId, setPendingReassignActiveProgramId] = useState<string | null>(null)
   const [importing, setImporting] = useState(false)
   const [importFile, setImportFile] = useState<File | null>(null)
   const [showImportDialog, setShowImportDialog] = useState(false)
@@ -1240,10 +1247,18 @@ export function WorkoutPlanManagement() {
             exercises: day.exercises
           })),
         }
-        if (parsedUserId && Number.isFinite(parsedUserId)) {
-          planData.assigned_user_ids = [parsedUserId]
-        } else if (assignedFromForm.length > 0) {
-          planData.assigned_user_ids = assignedFromForm
+        const isTemplate = Boolean((editingPlan as any).is_template) && !parsedUserId
+        const includeAssigned = shouldIncludeAssignedUserIdsOnSave({
+          isEditingExisting: true,
+          isTemplate,
+          isUserOwnedProgram: Boolean(parsedUserId && Number.isFinite(parsedUserId)),
+        })
+        if (includeAssigned) {
+          if (parsedUserId && Number.isFinite(parsedUserId)) {
+            planData.assigned_user_ids = [parsedUserId]
+          } else if (assignedFromForm.length > 0) {
+            planData.assigned_user_ids = assignedFromForm
+          }
         }
         await updatePlan(editingPlan.id, planData)
         toast({
@@ -1612,15 +1627,21 @@ export function WorkoutPlanManagement() {
   const openAssignUserDialog = (planId: string) => {
     setAssignUserSourceId(planId)
     setAssignUserTargetId("none")
+    setPendingReassignActiveProgramId(null)
+    setShowReassignConfirmDialog(false)
     setShowAssignUserDialog(true)
   }
 
-  const handleAssignToUser = async () => {
+  const handleAssignToUser = async (options?: { force?: boolean; replaceActiveProgramId?: string | null }) => {
     if (!assignUserSourceId || assignUserTargetId === "none") return
     try {
       setAssigningToUser(true)
       const userId = Number(assignUserTargetId)
-      const result = await updatePlan(assignUserSourceId, { assigned_user_ids: [userId] })
+      const payload: Record<string, unknown> = { assigned_user_ids: [userId] }
+      const forcePayload = options?.force && options.replaceActiveProgramId
+        ? buildForceReassignPayload(payload, { activeProgramId: options.replaceActiveProgramId })
+        : payload
+      const result = await updatePlan(assignUserSourceId, forcePayload)
       const createdIds = Array.isArray(result?.created_user_program_ids)
         ? result.created_user_program_ids
         : []
@@ -1631,9 +1652,13 @@ export function WorkoutPlanManagement() {
       }
       const userName = usersList.find((u) => u.id === assignUserTargetId)?.email || "usuario"
       toast({
-        title: "✅ Plan asignado",
-        description: `Se ha clonado y asignado la rutina a ${userName}`,
+        title: options?.force ? "✅ Plan reasignado" : "✅ Plan asignado",
+        description: options?.force
+          ? `Se creó una nueva copia para ${userName}. El programa anterior queda histórico.`
+          : `Se ha clonado y asignado la rutina a ${userName}`,
       })
+      setShowReassignConfirmDialog(false)
+      setPendingReassignActiveProgramId(null)
       setShowAssignUserDialog(false)
       setPlanTypeFilter("users")
       updateFilters({
@@ -1642,6 +1667,11 @@ export function WorkoutPlanManagement() {
         user: String(userId),
       })
     } catch (e) {
+      if (isTemplateAlreadyAssignedError(e)) {
+        setPendingReassignActiveProgramId(e.activeProgramId)
+        setShowReassignConfirmDialog(true)
+        return
+      }
       toast({
         title: "❌ Error",
         description: e instanceof Error ? e.message : "No se pudo asignar la rutina",
@@ -1650,6 +1680,19 @@ export function WorkoutPlanManagement() {
     } finally {
       setAssigningToUser(false)
     }
+  }
+
+  const handleConfirmReassign = async () => {
+    if (!pendingReassignActiveProgramId) return
+    await handleAssignToUser({
+      force: true,
+      replaceActiveProgramId: pendingReassignActiveProgramId,
+    })
+  }
+
+  const handleCancelReassign = () => {
+    setShowReassignConfirmDialog(false)
+    setPendingReassignActiveProgramId(null)
   }
 
   const mapPlanDetailDaysToPayload = (days: any[]) =>
@@ -3619,7 +3662,7 @@ export function WorkoutPlanManagement() {
               Cancelar
             </Button>
             <Button
-              onClick={handleAssignToUser}
+              onClick={() => void handleAssignToUser()}
               disabled={assigningToUser || assignUserTargetId === "none"}
               className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white border-0"
             >
@@ -3627,6 +3670,43 @@ export function WorkoutPlanManagement() {
                 <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Asignando...</>
               ) : (
                 <><UserPlus className="h-4 w-4 mr-2" />Asignar</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={showReassignConfirmDialog}
+        onOpenChange={(open) => {
+          if (!open && !assigningToUser) handleCancelReassign()
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>¿Reasignar esta plantilla?</DialogTitle>
+            <DialogDescription>
+              Este usuario ya tiene una copia activa de esta plantilla. Si continúas, se
+              desactivará su programa actual y se creará una nueva copia. El histórico se conserva.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={handleCancelReassign}
+              disabled={assigningToUser}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => void handleConfirmReassign()}
+              disabled={assigningToUser || !pendingReassignActiveProgramId}
+              className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white border-0"
+            >
+              {assigningToUser ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Reasignando...</>
+              ) : (
+                "Reasignar"
               )}
             </Button>
           </DialogFooter>

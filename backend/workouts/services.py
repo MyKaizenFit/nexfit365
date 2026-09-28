@@ -3,6 +3,7 @@ from typing import Dict, List, Optional, Tuple
 from datetime import timedelta
 import random
 
+from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
@@ -13,6 +14,32 @@ from .models import (
     WorkoutDay,
     WorkoutDayExercise,
 )
+
+
+class TemplateAlreadyAssigned(Exception):
+    """El usuario ya tiene activa una copia derivada de esta plantilla."""
+
+    def __init__(self, *, user: CustomUser, active_program: WorkoutProgram, template: WorkoutProgram):
+        self.user = user
+        self.active_program = active_program
+        self.template = template
+        super().__init__(
+            f"User {user.pk} already has template {template.pk} "
+            f"active as program {active_program.pk}"
+        )
+
+
+class AssignmentConflict(Exception):
+    """El programa activo cambió mientras se confirmaba la reasignación."""
+
+    def __init__(self, *, user: CustomUser, active_program: Optional[WorkoutProgram], template: WorkoutProgram):
+        self.user = user
+        self.active_program = active_program
+        self.template = template
+        super().__init__(
+            f"Assignment conflict for user {user.pk} template {template.pk}: "
+            f"active={getattr(active_program, 'pk', None)}"
+        )
 
 
 def reset_weekly_workout_plan_if_needed(program: WorkoutProgram) -> WorkoutProgram:
@@ -577,6 +604,9 @@ class DefaultWorkoutAssignmentService:
         default_program: Optional[WorkoutProgram],
         assigned_by: Optional[CustomUser] = None,
         notes: Optional[str] = None,
+        *,
+        force_reassign: bool = False,
+        replace_active_program_id: Optional[str] = None,
     ) -> Optional[WorkoutProgram]:
         if not default_program:
             return None
@@ -588,67 +618,109 @@ class DefaultWorkoutAssignmentService:
         if not default_program.days.exists():
             return None
 
-        existing_active_program = WorkoutProgram.objects.filter(user=self.user, is_active=True).first()
-        if existing_active_program:
-            existing_active_program.is_active = False
-            existing_active_program.end_date = timezone.localdate()
-            existing_active_program.save()
+        # Serializa asignaciones concurrentes por usuario (lock de fila estable).
+        with transaction.atomic():
+            locked_user = CustomUser.objects.select_for_update().get(pk=self.user.pk)
+            self.user = locked_user
 
-        from .program_lifecycle import program_duration_weeks_from_plan
+            existing_active_program = (
+                WorkoutProgram.objects.select_for_update()
+                .filter(user=locked_user, is_active=True)
+                .order_by("-updated_at", "-created_at")
+                .first()
+            )
 
-        today = timezone.localdate()
-        monday = today - timedelta(days=today.weekday())
-        duration = program_duration_weeks_from_plan(default_program)
-        end_date = monday + timedelta(weeks=duration)
-        assigned_days_per_week = self.infer_weekly_training_days(default_program)
+            if existing_active_program:
+                existing_source = extract_source_template_id(existing_active_program.tags)
+                same_template = (
+                    existing_source is not None
+                    and str(existing_source) == str(default_program.id)
+                )
+                if same_template and not force_reassign:
+                    raise TemplateAlreadyAssigned(
+                        user=locked_user,
+                        active_program=existing_active_program,
+                        template=default_program,
+                    )
 
-        program = WorkoutProgram.objects.create(
-            user=self.user,
-            name=f"{default_program.name} - {self.user.get_full_name() or self.user.email}",
-            description=(default_program.description or "Programa asignado automáticamente"),
-            difficulty=default_program.difficulty or "beginner",
-            goal=self._infer_goal(default_program),
-            days_per_week=assigned_days_per_week,
-            duration_weeks=duration,
-            start_date=monday,
-            end_date=end_date,
-            is_active=True,
-            is_template=False,
-            is_system=False,
-            tags=build_assigned_program_tags(default_program),
-        )
+                # Reasignación confirmada: si el cliente ancla al programa que vio,
+                # rechazar si otro request ya lo reemplazó (evita ráfagas concurrentes).
+                if (
+                    force_reassign
+                    and replace_active_program_id
+                    and str(existing_active_program.id) != str(replace_active_program_id)
+                ):
+                    raise AssignmentConflict(
+                        user=locked_user,
+                        active_program=existing_active_program,
+                        template=default_program,
+                    )
 
-        if getattr(self.user, "training_days_per_week", None) != assigned_days_per_week:
-            self.user.training_days_per_week = assigned_days_per_week
-            self.user.save(update_fields=["training_days_per_week", "updated_at"])
+                existing_active_program.is_active = False
+                existing_active_program.end_date = timezone.localdate()
+                existing_active_program.save(update_fields=["is_active", "end_date", "updated_at"])
+            elif force_reassign and replace_active_program_id:
+                raise AssignmentConflict(
+                    user=locked_user,
+                    active_program=None,
+                    template=default_program,
+                )
 
-        from accounts.services import (
-            copy_template_days_to_user_program,
-            get_template_training_days_with_exercises,
-            normalize_training_days,
-        )
+            from .program_lifecycle import program_duration_weeks_from_plan
 
-        template_days = list(
-            default_program.days.all()
-            .prefetch_related("exercises")
-            .order_by("day_number", "order_index")
-        )
-        explicit_training_days = normalize_training_days(
-            getattr(self.user, "training_days", None)
-        )
-        template_training_days = get_template_training_days_with_exercises(default_program)
+            today = timezone.localdate()
+            monday = today - timedelta(days=today.weekday())
+            duration = program_duration_weeks_from_plan(default_program)
+            end_date = monday + timedelta(weeks=duration)
+            assigned_days_per_week = self.infer_weekly_training_days(default_program)
 
-        copy_template_days_to_user_program(
-            template_days,
-            program,
-            user_training_days=explicit_training_days or None,
-            template_training_days=template_training_days,
-        )
+            program = WorkoutProgram.objects.create(
+                user=locked_user,
+                name=f"{default_program.name} - {locked_user.get_full_name() or locked_user.email}",
+                description=(default_program.description or "Programa asignado automáticamente"),
+                difficulty=default_program.difficulty or "beginner",
+                goal=self._infer_goal(default_program),
+                days_per_week=assigned_days_per_week,
+                duration_weeks=duration,
+                start_date=monday,
+                end_date=end_date,
+                is_active=True,
+                is_template=False,
+                is_system=False,
+                tags=build_assigned_program_tags(default_program),
+            )
 
-        from dashboard.plan_sync import sync_user_from_active_plans
-        sync_user_from_active_plans(self.user)
+            if getattr(locked_user, "training_days_per_week", None) != assigned_days_per_week:
+                locked_user.training_days_per_week = assigned_days_per_week
+                locked_user.save(update_fields=["training_days_per_week", "updated_at"])
 
-        return program
+            from accounts.services import (
+                copy_template_days_to_user_program,
+                get_template_training_days_with_exercises,
+                normalize_training_days,
+            )
+
+            template_days = list(
+                default_program.days.all()
+                .prefetch_related("exercises")
+                .order_by("day_number", "order_index")
+            )
+            explicit_training_days = normalize_training_days(
+                getattr(locked_user, "training_days", None)
+            )
+            template_training_days = get_template_training_days_with_exercises(default_program)
+
+            copy_template_days_to_user_program(
+                template_days,
+                program,
+                user_training_days=explicit_training_days or None,
+                template_training_days=template_training_days,
+            )
+
+            from dashboard.plan_sync import sync_user_from_active_plans
+            sync_user_from_active_plans(locked_user)
+
+            return program
 
     def _infer_goal(self, default_program: WorkoutProgram) -> str:
         tags = {str(tag).lower() for tag in (default_program.tags or [])}

@@ -1,5 +1,9 @@
 import { buildApiUrl, authenticatedFetch } from '@/lib/api'
 import { formatInvalidIdMessage, isValidWorkoutPlanId } from '@/lib/admin-id-utils'
+import {
+  TemplateAlreadyAssignedError,
+  isTemplateAlreadyAssignedPayload,
+} from '@/lib/workout-assignment'
 // hooks/use-admin-workout-plans-optimized.ts - Versión optimizada con paginación del servidor
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '@/contexts/auth-context'
@@ -128,6 +132,10 @@ export const useAdminWorkoutPlansOptimized = (initialFilters: WorkoutPlanFilters
     const errorData = await response.json().catch(() => null)
     if (!errorData || typeof errorData !== 'object') return fallback
 
+    if (isTemplateAlreadyAssignedPayload(errorData)) {
+      throw new TemplateAlreadyAssignedError(errorData)
+    }
+
     if (typeof (errorData as any).detail === 'string') return (errorData as any).detail
     if (typeof (errorData as any).message === 'string') return (errorData as any).message
     if (typeof (errorData as any).error === 'string') return (errorData as any).error
@@ -142,6 +150,13 @@ export const useAdminWorkoutPlansOptimized = (initialFilters: WorkoutPlanFilters
     }
 
     return fallback
+  }
+
+  const throwIfResponseNotOk = async (response: Response, fallback: string) => {
+    if (response.ok) return
+    // May throw TemplateAlreadyAssignedError for 409 template_already_assigned
+    const message = await getResponseErrorMessage(response, fallback)
+    throw new Error(message)
   }
 
   // Construir URL con parámetros
@@ -412,9 +427,7 @@ export const useAdminWorkoutPlansOptimized = (initialFilters: WorkoutPlanFilters
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(planData),
     })
-    if (!response.ok) {
-      throw new Error(await getResponseErrorMessage(response, `Error ${response.status}`))
-    }
+    await throwIfResponseNotOk(response, `Error ${response.status}`)
     const newPlan = await response.json()
 
     setCurrentPage(1)
@@ -435,9 +448,7 @@ export const useAdminWorkoutPlansOptimized = (initialFilters: WorkoutPlanFilters
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(planData),
     })
-    if (!response.ok) {
-      throw new Error(await getResponseErrorMessage(response, `Error ${response.status}`))
-    }
+    await throwIfResponseNotOk(response, `Error ${response.status}`)
     const updatedPlan = await response.json()
 
     // Actualizar lista y estadísticas

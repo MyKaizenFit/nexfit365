@@ -15,7 +15,13 @@ from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 
 from .models import Exercise, WorkoutProgram, WorkoutDay, WorkoutLog, ExerciseSubstitution
-from .services import DefaultWorkoutAssignmentService, resolve_reference_workout_program, prefetch_workout_program_with_days
+from .services import (
+    AssignmentConflict,
+    DefaultWorkoutAssignmentService,
+    TemplateAlreadyAssigned,
+    resolve_reference_workout_program,
+    prefetch_workout_program_with_days,
+)
 from accounts.streaks import get_user_activity_streak
 from .admin_serializers import (
     AdminExerciseSerializer,
@@ -451,20 +457,89 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
 
         return list(dict.fromkeys(normalized))
 
-    def _assign_template_to_users(self, template_program: WorkoutProgram, user_ids, assigned_by):
+    def _extract_force_reassign(self, data) -> bool:
+        raw = data.get('force_reassign', False)
+        if isinstance(raw, str):
+            return raw.strip().lower() in {'1', 'true', 'yes', 'on'}
+        return bool(raw)
+
+    def _extract_replace_active_program_id(self, data) -> str | None:
+        raw = data.get('replace_active_program_id')
+        if raw in (None, '', 'none'):
+            return None
+        return str(raw)
+
+    def _already_assigned_response(self, already_assigned):
+        first = already_assigned[0] if already_assigned else {}
+        return Response(
+            {
+                'code': 'template_already_assigned',
+                'detail': (
+                    'El usuario ya tiene una copia activa de esta plantilla. '
+                    'Confirma la reasignación para crear una nueva copia.'
+                ),
+                'active_program_id': first.get('active_program_id'),
+                'already_assigned': already_assigned,
+            },
+            status=status.HTTP_409_CONFLICT,
+        )
+
+    def _assignment_conflict_response(self, conflicts):
+        first = conflicts[0] if conflicts else {}
+        return Response(
+            {
+                'code': 'assignment_conflict',
+                'detail': (
+                    'El programa activo cambió mientras se confirmaba la reasignación. '
+                    'Revisa el estado actual antes de volver a intentarlo.'
+                ),
+                'active_program_id': first.get('active_program_id'),
+                'conflicts': conflicts,
+            },
+            status=status.HTTP_409_CONFLICT,
+        )
+
+    def _assign_template_to_users(
+        self,
+        template_program: WorkoutProgram,
+        user_ids,
+        assigned_by,
+        *,
+        force_reassign: bool = False,
+        replace_active_program_id: str | None = None,
+    ):
         created_program_ids = []
+        already_assigned = []
+        conflicts = []
         valid_user_ids = set(User.objects.filter(id__in=user_ids).values_list('id', flat=True))
         for user_id in user_ids:
             if user_id not in valid_user_ids:
                 continue
             user = User.objects.get(id=user_id)
-            assigned_program = DefaultWorkoutAssignmentService(user).assign_from_default(
-                template_program,
-                assigned_by=assigned_by,
-            )
+            try:
+                assigned_program = DefaultWorkoutAssignmentService(user).assign_from_default(
+                    template_program,
+                    assigned_by=assigned_by,
+                    force_reassign=force_reassign,
+                    replace_active_program_id=replace_active_program_id,
+                )
+            except TemplateAlreadyAssigned as exc:
+                already_assigned.append({
+                    'user_id': user_id,
+                    'active_program_id': str(exc.active_program.id),
+                    'template_id': str(template_program.id),
+                })
+                continue
+            except AssignmentConflict as exc:
+                conflicts.append({
+                    'user_id': user_id,
+                    'active_program_id': str(exc.active_program.id) if exc.active_program else None,
+                    'template_id': str(template_program.id),
+                })
+                continue
             if assigned_program:
                 created_program_ids.append(str(assigned_program.id))
-        return created_program_ids
+        return created_program_ids, already_assigned, conflicts
 
     @transaction.atomic
     def create(self, request, *args, **kwargs):
@@ -476,7 +551,11 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
         data = request.data.copy() if hasattr(request.data, 'copy') else dict(request.data)
         days_data = data.pop('days', []) or []
         assigned_user_ids = self._extract_assigned_user_ids(data)
+        force_reassign = self._extract_force_reassign(data)
+        replace_active_program_id = self._extract_replace_active_program_id(data)
         data.pop('assigned_user_ids', None)
+        data.pop('force_reassign', None)
+        data.pop('replace_active_program_id', None)
         try:
             week_scope = parse_week_param(
                 request.query_params.get('week') or data.get('week')
@@ -505,6 +584,8 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
         self._apply_days_payload(program, days_data, week_scope=week_scope)
 
         created_user_program_ids = []
+        already_assigned = []
+        conflicts = []
         if assigned_user_ids:
             if program.user_id:
                 program.user = None
@@ -512,7 +593,17 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
                 program.is_system = False
                 program.save(update_fields=['user', 'is_template', 'is_system'])
 
-            created_user_program_ids = self._assign_template_to_users(program, assigned_user_ids, request.user)
+            created_user_program_ids, already_assigned, conflicts = self._assign_template_to_users(
+                program,
+                assigned_user_ids,
+                request.user,
+                force_reassign=force_reassign,
+                replace_active_program_id=replace_active_program_id,
+            )
+            if already_assigned and not created_user_program_ids and not conflicts:
+                return self._already_assigned_response(already_assigned)
+            if conflicts and not created_user_program_ids:
+                return self._assignment_conflict_response(conflicts)
             if not created_user_program_ids:
                 return Response(
                     {
@@ -544,6 +635,10 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
         else:
             response_data['assigned_user_ids'] = assigned_user_ids
         response_data['created_user_program_ids'] = created_user_program_ids
+        if already_assigned:
+            response_data['already_assigned'] = already_assigned
+        if conflicts:
+            response_data['assignment_conflicts'] = conflicts
         return Response(response_data, status=status.HTTP_201_CREATED)
 
     @transaction.atomic
@@ -558,7 +653,11 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
         data = request.data.copy() if hasattr(request.data, 'copy') else dict(request.data)
         days_data = data.pop('days', None)  # None => no tocar días
         assigned_user_ids = self._extract_assigned_user_ids(data)
+        force_reassign = self._extract_force_reassign(data)
+        replace_active_program_id = self._extract_replace_active_program_id(data)
         data.pop('assigned_user_ids', None)
+        data.pop('force_reassign', None)
+        data.pop('replace_active_program_id', None)
         try:
             week_scope = parse_week_param(
                 request.query_params.get('week') or data.get('week')
@@ -576,6 +675,8 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
             self._apply_days_payload(program, days_data, week_scope=week_scope)
 
         created_user_program_ids = []
+        already_assigned = []
+        conflicts = []
         if assigned_user_ids is not None:
             valid_user_ids = set(User.objects.filter(id__in=assigned_user_ids).values_list('id', flat=True))
             assigned_user_ids = [user_id for user_id in assigned_user_ids if user_id in valid_user_ids]
@@ -595,7 +696,17 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
                 program.save(update_fields=['user', 'is_template', 'is_system'])
 
             if assigned_user_ids and not same_user_assignment:
-                created_user_program_ids = self._assign_template_to_users(program, assigned_user_ids, request.user)
+                created_user_program_ids, already_assigned, conflicts = self._assign_template_to_users(
+                    program,
+                    assigned_user_ids,
+                    request.user,
+                    force_reassign=force_reassign,
+                    replace_active_program_id=replace_active_program_id,
+                )
+                if already_assigned and not created_user_program_ids and not conflicts:
+                    return self._already_assigned_response(already_assigned)
+                if conflicts and not created_user_program_ids:
+                    return self._assignment_conflict_response(conflicts)
                 if not created_user_program_ids:
                     return Response(
                         {
@@ -629,6 +740,10 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
         else:
             response_data['assigned_user_ids'] = assigned_user_ids
         response_data['created_user_program_ids'] = created_user_program_ids
+        if already_assigned:
+            response_data['already_assigned'] = already_assigned
+        if conflicts:
+            response_data['assignment_conflicts'] = conflicts
         if week_scope is not None:
             response_data['updated_week'] = week_scope
         return Response(response_data, status=status.HTTP_200_OK)
