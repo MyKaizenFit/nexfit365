@@ -316,6 +316,44 @@ def test_week_scoped_update_preserves_other_weeks(admin_client, admin_user):
 
 
 @pytest.mark.django_db
+@override_settings(DEBUG=True)
+def test_available_templates_avoids_deep_prefetch_and_n_plus_one(member_client, admin_user):
+    """Listado de plantillas: contrato mínimo, days_count correcto, sin cargar días/ejercicios."""
+    templates = []
+    for i in range(8):
+        template, _ = _build_multiweek_template(
+            weeks=3,
+            days_per_week=2,
+            exercises_per_day=2,
+            admin_user=admin_user,
+        )
+        template.name = f"Plantilla Count {i}"
+        template.save(update_fields=["name"])
+        templates.append(template)
+
+    expected_days = {str(t.id): t.days.count() for t in templates}
+
+    reset_queries()
+    with CaptureQueriesContext(connection) as ctx:
+        response = member_client.get("/api/workout-programs/available_templates/")
+    assert response.status_code == 200
+    assert isinstance(response.data, list)
+    assert len(response.data) >= 8
+
+    by_id = {str(row["id"]): row for row in response.data}
+    for tid, days_count in expected_days.items():
+        assert tid in by_id
+        assert by_id[tid]["days_count"] == days_count
+        assert by_id[tid]["is_template"] is True
+
+    # 1 query plantillas+annotate + overhead auth/session. Sin N+1 por plantilla ni prefetch de ejercicios.
+    assert len(ctx) <= 12, f"Demasiadas queries ({len(ctx)}): {[q['sql'][:120] for q in ctx.captured_queries]}"
+    sql_blob = " ".join(q["sql"].lower() for q in ctx.captured_queries)
+    assert "workouts_workoutdayexercise" not in sql_blob
+    assert "workouts_exercisesubstitution" not in sql_blob
+
+
+@pytest.mark.django_db
 def test_my_active_program_defaults_to_current_week(member_client, member, admin_user):
     template, _ = _build_multiweek_template(weeks=4, days_per_week=2, exercises_per_day=1, admin_user=admin_user)
     assigned = DefaultWorkoutAssignmentService(member).assign_from_default(template, assigned_by=admin_user)

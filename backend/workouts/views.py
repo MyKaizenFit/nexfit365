@@ -282,12 +282,20 @@ class WorkoutProgramViewSet(viewsets.ModelViewSet):
 
             return Response({'program': None, 'fallback': True}, status=status.HTTP_200_OK)
     
+    @staticmethod
+    def _active_templates_queryset():
+        """Listado de plantillas: metadatos + days_count anotado (sin prefetch de días/ejercicios)."""
+        from django.db.models import Count
+
+        return WorkoutProgram.objects.filter(
+            is_template=True,
+            is_active=True,
+        ).annotate(days_count_total=Count("days", distinct=True))
+
     @action(detail=False, methods=['get'])
     def templates(self, request):
         """Plantillas disponibles"""
-        templates = WorkoutProgram.objects.filter(
-            is_template=True, is_active=True
-        )
+        templates = self._active_templates_queryset()
         serializer = WorkoutProgramMinimalSerializer(templates, many=True)
         return Response(serializer.data)
     
@@ -295,12 +303,7 @@ class WorkoutProgramViewSet(viewsets.ModelViewSet):
     def available_templates(self, request):
         """Plantillas disponibles para asignar (alias de templates)"""
         try:
-            templates = WorkoutProgram.objects.filter(
-                is_template=True, is_active=True
-            ).prefetch_related(
-                'days__exercises__exercise',
-                'days__exercises__exercise__substitutions__substitute',
-            )
+            templates = self._active_templates_queryset()
             serializer = WorkoutProgramMinimalSerializer(templates, many=True)
             return Response(serializer.data)
         except DatabaseError as exc:
