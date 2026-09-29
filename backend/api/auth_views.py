@@ -646,10 +646,14 @@ class ChangePasswordView(APIView):
                 return Response({
                     "detail": "Contraseña actualizada exitosamente"
                 }, status=status.HTTP_200_OK)
-            except Exception as e:
+            except Exception as exc:
+                logger.error(
+                    "Password change failed for user_id=%s (%s)",
+                    request.user.id,
+                    type(exc).__name__,
+                )
                 return Response({
                     "detail": "Error al actualizar contraseña",
-                    "error": str(e)
                 }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -733,8 +737,12 @@ class ChangePasswordAfterTemporaryView(APIView):
                 "detail": "Contraseña actualizada exitosamente. Por favor, inicia sesión nuevamente."
             }, status=status.HTTP_200_OK)
             
-        except Exception as e:
+        except Exception as exc:
+            logger.error(
+                "Temporary password change failed for user_id=%s (%s)",
+                request.user.id,
+                type(exc).__name__,
+            )
             return Response({
                 "detail": "Error procesando el cambio de contraseña",
-                "error": str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

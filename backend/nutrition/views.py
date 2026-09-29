@@ -1911,7 +1911,7 @@ def adjust_plan(request):
     except Exception as e:
         logger.error("Nutrition plan adjustment failed for user_id=%s (%s)", user.id, type(e).__name__)
         return Response(
-            {'error': f'Error al ajustar el plan: {str(e)}'},
+            {'error': 'Error al ajustar el plan'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 

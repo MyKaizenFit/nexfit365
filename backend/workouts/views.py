@@ -354,7 +354,12 @@ class WorkoutProgramViewSet(viewsets.ModelViewSet):
             is_active=True
         ).exclude(pk=pk).update(is_active=False)
         
-        logger.info(f'Usuario {user.email}: Desactivados {deactivated_count} programas al activar programa {pk}')
+        logger.info(
+            "Deactivated %s programs while activating program %s for user_id=%s",
+            deactivated_count,
+            pk,
+            user.id,
+        )
         
         # Activar el programa solicitado
         program.is_active = True

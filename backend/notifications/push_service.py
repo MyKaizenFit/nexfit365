@@ -114,7 +114,10 @@ class PushNotificationService:
                 }
             )
             
-            logger.info(f"✅ Push notification enviada a {subscription.user.email}")
+            logger.info(
+                "Push notification sent for user_id=%s",
+                subscription.user_id,
+            )
             return True
             
         except WebPushException as e:
@@ -128,10 +131,12 @@ class PushNotificationService:
                 logger.error(f"Error enviando push notification: {str(e)}")
             return False
             
-        except Exception as e:
-            logger.error(f"Error inesperado enviando push notification: {str(e)}")
-            import traceback
-            logger.error(traceback.format_exc())
+        except Exception as exc:
+            logger.error(
+                "Unexpected push notification failure for subscription_id=%s (%s)",
+                getattr(subscription, "id", None),
+                type(exc).__name__,
+            )
             return False
     
     def send_to_user(
@@ -166,7 +171,7 @@ class PushNotificationService:
         )
         
         if not subscriptions.exists():
-            logger.debug(f"Usuario {user.email} no tiene suscripciones push activas")
+            logger.debug("No active push subscriptions for user_id=%s", user.id)
             return 0
         
         # Crear registro de notificación si se solicita
@@ -204,8 +209,10 @@ class PushNotificationService:
                 sent_count += 1
         
         logger.info(
-            f"📤 Enviadas {sent_count}/{subscriptions.count()} push notifications "
-            f"a {user.email}"
+            "Sent %s/%s push notifications for user_id=%s",
+            sent_count,
+            subscriptions.count(),
+            user.id,
         )
         
         return sent_count
@@ -256,7 +263,11 @@ class PushNotificationService:
                 })
             except Exception as e:
                 total_failed += 1
-                logger.error(f"Error enviando push a {user.email}: {str(e)}")
+                logger.error(
+                    "Bulk push failed for user_id=%s (%s)",
+                    user.id,
+                    type(e).__name__,
+                )
                 results.append({
                     "user": user.email,
                     "sent": 0,

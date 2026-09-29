@@ -102,7 +102,11 @@ def send_notifications_sync(notification_id: int):
                     metadata={"reason": "channel_disabled"},
                 )
             elif notification.user.push_subscriptions.exists():
-                logger.info(f"Enviando push para notificación {notification.id} a {notification.user.email}")
+                logger.info(
+                    "Sending push for notification %s user_id=%s",
+                    notification.id,
+                    notification.user_id,
+                )
                 sent_push = push_service.send_to_user(
                     user=notification.user,
                     title=notification.title,
@@ -133,7 +137,11 @@ def send_notifications_sync(notification_id: int):
                     metadata={"reason": "no_active_push_subscriptions"},
                 )
         except Exception as e:
-            logger.error(f"Error enviando push notification {notification.id}: {e}")
+            logger.error(
+                "Push delivery failed for notification %s (%s)",
+                notification.id,
+                type(e).__name__,
+            )
             update_delivery_log(
                 notification_id=notification.id,
                 channel=NotificationDeliveryLog.CHANNEL_PUSH,
@@ -153,7 +161,11 @@ def send_notifications_sync(notification_id: int):
                     metadata={"reason": "channel_disabled"},
                 )
             elif notification.user.email:
-                logger.info(f"Enviando email para notificación {notification.id} a {notification.user.email}")
+                logger.info(
+                    "Sending email for notification %s user_id=%s",
+                    notification.id,
+                    notification.user_id,
+                )
                 sent_email = email_service.send_notification_email(notification)
                 update_delivery_log(
                     notification_id=notification.id,
@@ -176,7 +188,11 @@ def send_notifications_sync(notification_id: int):
                     metadata={"reason": "user_without_email"},
                 )
         except Exception as e:
-            logger.error(f"Error enviando email notification {notification.id}: {e}")
+            logger.error(
+                "Email delivery failed for notification %s (%s)",
+                notification.id,
+                type(e).__name__,
+            )
             update_delivery_log(
                 notification_id=notification.id,
                 channel=NotificationDeliveryLog.CHANNEL_EMAIL,
@@ -188,7 +204,11 @@ def send_notifications_sync(notification_id: int):
     except Notification.DoesNotExist:
         logger.warning(f"Notificación {notification_id} no encontrada para envío asíncrono")
     except Exception as e:
-        logger.error(f"Error enviando notificaciones asíncronas para {notification_id}: {e}")
+        logger.error(
+            "Async notification delivery failed for notification %s (%s)",
+            notification_id,
+            type(e).__name__,
+        )
 
 
 @receiver(post_save, sender=Notification)

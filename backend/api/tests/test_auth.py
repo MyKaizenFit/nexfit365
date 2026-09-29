@@ -626,6 +626,49 @@ class TestChangePassword:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "new_password" in response.data
 
+    def test_change_password_internal_error_is_not_exposed(self, api_client, regular_user, monkeypatch):
+        refresh = RefreshToken.for_user(regular_user)
+        api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {refresh.access_token}")
+
+        def boom(*args, **kwargs):
+            raise RuntimeError("INTERNAL_TEST_EXCEPTION")
+
+        monkeypatch.setattr(type(regular_user), "save", boom)
+        response = api_client.post(reverse("auth-change-password"), {
+            "current_password": "UserPass123!",
+            "new_password": "NewPass123!",
+            "new_password_confirm": "NewPass123!",
+        })
+        raw = response.content.decode()
+
+        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        assert response.data == {"detail": "Error al actualizar contraseña"}
+        assert "INTERNAL_TEST_EXCEPTION" not in raw
+        assert "error" not in response.data
+
+    def test_change_password_after_temporary_internal_error_is_not_exposed(
+        self, api_client, regular_user, monkeypatch
+    ):
+        regular_user.must_change_password = True
+        regular_user.save(update_fields=["must_change_password"])
+        refresh = RefreshToken.for_user(regular_user)
+        api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {refresh.access_token}")
+
+        def boom(*args, **kwargs):
+            raise RuntimeError("INTERNAL_TEST_EXCEPTION")
+
+        monkeypatch.setattr(type(regular_user), "save", boom)
+        response = api_client.post(reverse("auth-change-password-after-temporary"), {
+            "new_password": "NewPass123!",
+            "new_password_confirm": "NewPass123!",
+        })
+        raw = response.content.decode()
+
+        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        assert response.data == {"detail": "Error procesando el cambio de contraseña"}
+        assert "INTERNAL_TEST_EXCEPTION" not in raw
+        assert "error" not in response.data
+
     def test_change_password_unauthenticated(self, api_client):
         """Test de cambio sin autenticación"""
         url = reverse("auth-change-password")
