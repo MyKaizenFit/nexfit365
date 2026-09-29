@@ -53,7 +53,10 @@ class ProgressNotificationService:
             ).first()
             
             if recent_notification:
-                logger.info(f'Notificación de estancamiento ya enviada recientemente para {self.user.email}')
+                logger.info(
+                    "Stalled-progress notification already sent for user_id=%s",
+                    self.user.id,
+                )
                 return recent_notification
             
             # Crear notificación
@@ -78,11 +81,15 @@ class ProgressNotificationService:
                 expires_at=timezone.now() + timedelta(days=7),  # Expira en 7 días
             )
             
-            logger.info(f'✅ Notificación de estancamiento enviada a {self.user.email}')
+            logger.info("Stalled-progress notification created for user_id=%s", self.user.id)
             return notification
             
         except Exception as e:
-            logger.error(f'❌ Error enviando notificación de estancamiento a {self.user.email}: {str(e)}')
+            logger.error(
+                "Stalled-progress notification failed for user_id=%s (%s)",
+                self.user.id,
+                type(e).__name__,
+            )
             return None
     
     def send_slow_progress_notification(self, analysis: Dict) -> Optional[Notification]:
@@ -126,7 +133,7 @@ class ProgressNotificationService:
                 expires_at=timezone.now() + timedelta(days=5),
             )
             
-            logger.info(f'✅ Notificación de progreso lento enviada a {self.user.email}')
+            logger.info("Slow-progress notification created for user_id=%s", self.user.id)
             return notification
             
         except Exception as e:
@@ -154,7 +161,7 @@ class ProgressNotificationService:
                 expires_at=timezone.now() + timedelta(days=3),
             )
             
-            logger.info(f'✅ Notificación de ajuste de plan enviada a {self.user.email}')
+            logger.info("Plan-adjustment notification created for user_id=%s", self.user.id)
             return notification
             
         except Exception as e:
@@ -166,7 +173,7 @@ class ProgressNotificationService:
         Envía una notificación cuando el usuario alcanza un logro relacionado con el progreso.
         """
         try:
-            logger.info(f'📌 Logro registrado para {self.user.email}: {achievement_data.get("title")} - Sin crear notificación')
+            logger.info("Progress achievement noted for user_id=%s", self.user.id)
             return None
             
         except Exception as e:
@@ -214,7 +221,11 @@ class ProgressNotificationService:
                     stats['total'] += 1
             
         except Exception as e:
-            logger.error(f'❌ Error verificando notificaciones para {self.user.email}: {str(e)}')
+            logger.error(
+                "Progress notification check failed for user_id=%s (%s)",
+                self.user.id,
+                type(e).__name__,
+            )
         
         return stats
 

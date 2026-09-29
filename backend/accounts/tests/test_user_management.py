@@ -360,6 +360,28 @@ class TestProfileEndpoints:
         assert member_user.allergies == ["gluten", "dairy"]
         assert member_user.medical_conditions == ["Celiaquía"]
 
+    def test_complete_initial_registration_hides_internal_error(self, api_client, member_user, monkeypatch):
+        api_client.force_authenticate(user=member_user)
+
+        def boom(self, *args, **kwargs):
+            raise RuntimeError("INTERNAL_TEST_EXCEPTION")
+
+        monkeypatch.setattr(
+            "accounts.views.InitialRegistrationSerializer.is_valid",
+            boom,
+        )
+        response = api_client.post(
+            reverse("complete_initial_registration"),
+            {"first_name": "Ana"},
+            format="json",
+        )
+        raw = response.content.decode()
+
+        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        assert response.data == {"detail": "Error al procesar el registro"}
+        assert "INTERNAL_TEST_EXCEPTION" not in raw
+        assert "error" not in response.data
+
 
 @pytest.mark.django_db
 class TestAdminUsersEndpoints:

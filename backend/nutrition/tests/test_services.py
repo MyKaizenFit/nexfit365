@@ -89,6 +89,19 @@ class PersonalizedNutritionServiceTest(TestCase):
 
         self.assertEqual(calories, 2300)
 
+    def test_calculate_daily_calories_logs_omit_profile_data(self):
+        service = PersonalizedNutritionService(self.user)
+        with self.assertLogs("nutrition.services", level="INFO") as captured:
+            service.calculate_daily_calories()
+
+        combined = "\n".join(captured.output)
+        self.assertIn(f"user_id={self.user.id}", combined)
+        self.assertNotIn(self.user.email, combined)
+        self.assertNotIn(f"weight={self.user.weight}", combined)
+        self.assertNotIn(f"height={self.user.height}", combined)
+        self.assertNotIn("edad=", combined)
+        self.assertNotIn(str(self.user.gender), combined)
+
     def test_calculate_daily_calories_with_missing_data_uses_weight_estimation(self):
         incomplete_user = User.objects.create_user(email="incomplete@example.com", password="testpass123")
         incomplete_user.weight = 80

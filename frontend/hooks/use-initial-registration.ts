@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useToast } from './use-toast';
 import { useAuth } from '@/contexts/auth-context';
-import { getAuthService } from '@/lib/auth-service';
 import { buildApiUrl, getAuthHeaders, USER_ENDPOINTS } from '@/lib/api';
-import { parseJwtPayload } from '@/lib/jwt';
 
 interface InitialRegistrationData {
   first_name: string;
@@ -88,45 +86,19 @@ export function useInitialRegistration() {
         
         if (response.ok) {
           const data = await response.json();
-          
-          // Sin JWT en memoria (HttpOnly), confiar en el perfil del backend
-          let currentUserId = null;
-          try {
-            const token = getAuthService().getAccessToken();
-            if (token) {
-              const payload = parseJwtPayload(token);
-              currentUserId = payload?.user_id || payload?.id || null;
-            }
-          } catch (e) {
-          }
-          
-          // Verificar que el localStorage corresponde al usuario actual
-          const storedProfile = localStorage.getItem('user_profile');
-          const storedUserId = storedProfile ? JSON.parse(storedProfile)?.id : null;
-          
+
+          // El perfil vive en la respuesta y en estado React. No persistirlo.
+          localStorage.removeItem('user_profile');
+
           if (data.is_complete) {
-            // Verificar que el userId coincide antes de usar localStorage
-            if (currentUserId && storedUserId && currentUserId !== storedUserId) {
-              localStorage.removeItem('initial_form_completed');
-              localStorage.removeItem('user_profile');
-              localStorage.removeItem('form_version');
-              // No usar localStorage, seguir con datos del backend
-            } else {
-              // Guardar en localStorage y cookie solo si el userId coincide
-              localStorage.setItem('initial_form_completed', 'true');
-              localStorage.setItem('user_profile', JSON.stringify(data.profile || {}));
-              if (data.form_version) {
-                localStorage.setItem('form_version', data.form_version.toString());
-              }
-              document.cookie = `initial_form_completed=true; path=/; max-age=${60 * 60 * 24 * 365}; SameSite=Lax`;
+            localStorage.setItem('initial_form_completed', 'true');
+            if (data.form_version) {
+              localStorage.setItem('form_version', data.form_version.toString());
             }
+            document.cookie = `initial_form_completed=true; path=/; max-age=${60 * 60 * 24 * 365}; SameSite=Lax`;
           } else {
-            // Si no está completo, limpiar localStorage para este usuario
-            if (currentUserId && storedUserId && currentUserId !== storedUserId) {
-              localStorage.removeItem('initial_form_completed');
-              localStorage.removeItem('user_profile');
-              localStorage.removeItem('form_version');
-            }
+            localStorage.removeItem('initial_form_completed');
+            localStorage.removeItem('form_version');
           }
           
           setStatus({
@@ -254,7 +226,7 @@ export function useInitialRegistration() {
       
       // Guardar en localStorage que el formulario está completo
       localStorage.setItem('initial_form_completed', 'true');
-      localStorage.setItem('user_profile', JSON.stringify(result.profile));
+      localStorage.removeItem('user_profile');
       // Guardar versión del formulario si está disponible
       if (result.form_version) {
         localStorage.setItem('form_version', result.form_version.toString());

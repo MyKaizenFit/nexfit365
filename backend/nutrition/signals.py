@@ -78,9 +78,8 @@ def update_plan_on_user_change(sender, instance, created, **kwargs):
                     notes=f"Override manual de administrador aplicado: {target_calories} kcal",
                 )
                 logger.info(
-                    "✅ Override manual de kcal aplicado para %s: %s kcal",
-                    instance.email,
-                    updated_plan.daily_calories,
+                    "Admin calorie override applied for user_id=%s",
+                    instance.id,
                 )
                 return
 
@@ -91,9 +90,8 @@ def update_plan_on_user_change(sender, instance, created, **kwargs):
                 old_weight=old_weight,
             )
             logger.info(
-                "✅ Override manual de kcal eliminado para %s; plan recalculado a %s kcal",
-                instance.email,
-                updated_plan.daily_calories,
+                "Admin calorie override removed for user_id=%s",
+                instance.id,
             )
             return
 
@@ -130,16 +128,22 @@ def update_plan_on_user_change(sender, instance, created, **kwargs):
                         }
                     )
                 except Exception as notif_error:
-                    logger.warning(f"No se pudo crear notificación: {notif_error}")
+                    logger.warning(
+                        "Nutrition plan notification failed for user_id=%s (%s)",
+                        instance.id,
+                        type(notif_error).__name__,
+                    )
                 
-                logger.info(f"✅ Plan actualizado automáticamente para {instance.email}: {update_reason}")
+                logger.info("Nutrition plan auto-updated for user_id=%s", instance.id)
         else:
-            logger.debug(f"No se requirió actualización de plan para {instance.email}")
+            logger.debug("Nutrition plan update not required for user_id=%s", instance.id)
             
-    except Exception as e:
-        logger.error(f"❌ Error actualizando plan para {instance.email}: {str(e)}")
-        import traceback
-        logger.error(traceback.format_exc())
+    except Exception as exc:
+        logger.error(
+            "Nutrition plan auto-update failed for user_id=%s (%s)",
+            instance.id,
+            type(exc).__name__,
+        )
         # No fallar la operación principal si hay error en la actualización
 
 
@@ -193,13 +197,19 @@ def update_plan_on_weight_entry(sender, instance, created, **kwargs):
                         }
                     )
                 except Exception as notif_error:
-                    logger.warning(f"No se pudo crear notificación: {notif_error}")
+                    logger.warning(
+                        "Nutrition plan notification failed for user_id=%s (%s)",
+                        user.id,
+                        type(notif_error).__name__,
+                    )
                 
-                logger.info(f"✅ Plan actualizado automáticamente para {user.email} tras entrada de peso: {update_reason}")
+                logger.info("Nutrition plan auto-updated after weight entry for user_id=%s", user.id)
             
-    except Exception as e:
-        logger.error(f"❌ Error actualizando plan tras entrada de peso para {user.email}: {str(e)}")
-        import traceback
-        logger.error(traceback.format_exc())
+    except Exception as exc:
+        logger.error(
+            "Nutrition plan update after weight entry failed for user_id=%s (%s)",
+            user.id,
+            type(exc).__name__,
+        )
         # No fallar la operación principal si hay error en la actualización
 

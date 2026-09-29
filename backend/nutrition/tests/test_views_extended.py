@@ -812,6 +812,27 @@ class TestAdjustPlan:
         response = client.post('/api/nutrition/adjust-plan/', {}, format='json')
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
+    def test_adjust_plan_internal_error_is_not_exposed(self, auth_client, user, monkeypatch):
+        NutritionPlan.objects.create(user=user, name="Plan activo", is_active=True, daily_calories=2000)
+
+        def boom(*args, **kwargs):
+            raise RuntimeError("INTERNAL_TEST_EXCEPTION")
+
+        monkeypatch.setattr(
+            "nutrition.views.PersonalizedNutritionService.adjust_plan_calories",
+            boom,
+        )
+        response = auth_client.post(
+            "/api/nutrition/adjust-plan/",
+            {"calorie_adjustment": 100},
+            format="json",
+        )
+        raw = response.content.decode()
+
+        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        assert response.data == {"error": "Error al ajustar el plan"}
+        assert "INTERNAL_TEST_EXCEPTION" not in raw
+
 
 # ---------------------------------------------------------------------------
 # RecipeViewSet - acciones adicionales

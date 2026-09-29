@@ -263,9 +263,14 @@ def complete_initial_registration(request):
                 workout_message = result.workout_message or (
                     "No se asignó plan de entrenamiento (la configuración no incluye uno)"
                 )
-            except Exception as e:
-                plan_message = f"Error al asignar planes: {str(e)}"
-                workout_message = f"Error al asignar planes: {str(e)}"
+            except Exception as exc:
+                logger.error(
+                    "Initial registration plan assignment failed for user_id=%s (%s)",
+                    user.id,
+                    type(exc).__name__,
+                )
+                plan_message = "No se pudo asignar el plan nutricional"
+                workout_message = "No se pudo asignar el plan de entrenamiento"
             
             response_data = {
                 'message': 'Formulario de registro inicial completado exitosamente',
@@ -297,14 +302,14 @@ def complete_initial_registration(request):
                 'errors': serializer.errors
             }
             return Response(error_response, status=status.HTTP_400_BAD_REQUEST)
-    except Exception as e:
-        # Capturar cualquier excepción inesperada
-        import traceback
-        error_detail = str(e)
-        traceback.print_exc()
+    except Exception as exc:
+        logger.error(
+            "Initial registration failed for user_id=%s (%s)",
+            getattr(request.user, "id", None),
+            type(exc).__name__,
+        )
         return Response({
-            'detail': f'Error al procesar el registro: {error_detail}',
-            'error': error_detail
+            'detail': 'Error al procesar el registro',
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 # Versión actual del formulario de registro inicial
@@ -492,7 +497,9 @@ def gdpr_request_deletion(request):
     except Exception as e:
         import logging as _logging
         _logging.getLogger(__name__).warning(
-            "⚠️ No se pudo enviar email RGPD al admin para usuario %s: %s", user.email, e
+            "GDPR deletion admin email failed for user_id=%s (%s)",
+            user.id,
+            type(e).__name__,
         )
 
     try:
@@ -513,7 +520,9 @@ def gdpr_request_deletion(request):
     except Exception as e:
         import logging as _logging
         _logging.getLogger(__name__).warning(
-            "⚠️ No se pudo enviar confirmación RGPD al usuario %s: %s", user.email, e
+            "GDPR deletion confirmation email failed for user_id=%s (%s)",
+            user.id,
+            type(e).__name__,
         )
 
     return Response(
