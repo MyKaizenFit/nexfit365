@@ -255,19 +255,18 @@ class PersonalizedNutritionService:
         Args:
             previous_calories: Calorías anteriores del plan para transición gradual (opcional)
         """
-        logger.info(f"📊 Calculando calorías para usuario ID: {self.user.id}, email: {self.user.email}")
-        logger.info(f"   Datos: peso={self.user.weight}, altura={self.user.height}, edad={self.user.age}, género={self.user.gender}, objetivo={self.user.main_goal}")
+        logger.info("Calculating daily calories for user_id=%s", self.user.id)
 
         # Prioridad máxima: override manual del administrador
         admin_override = getattr(self.user, 'admin_calories_override', None)
         if admin_override:
-            logger.info(f"   ⚙️ Usando override del administrador: {admin_override} kcal")
+            logger.info("Using admin calorie override for user_id=%s", self.user.id)
             return int(admin_override)
 
         if not all([self.user.age, self.user.gender, self.user.height, self.user.weight]):
             if getattr(self.user, 'daily_calories_target', None):
                 target = int(self.user.daily_calories_target)
-                logger.warning(f"⚠️ Datos incompletos del usuario, usando daily_calories_target={target} kcal")
+                logger.warning("Incomplete profile, using stored calorie target for user_id=%s", self.user.id)
                 return target
 
             if self.user.weight:
@@ -285,10 +284,10 @@ class PersonalizedNutritionService:
                     estimated = int(estimated * 1.10)
 
                 estimated = max(1200, min(4500, estimated))
-                logger.warning(f"⚠️ Datos incompletos del usuario, usando estimación por peso={estimated} kcal")
+                logger.warning("Incomplete profile, using weight-based calorie estimate for user_id=%s", self.user.id)
                 return estimated
 
-            logger.warning("⚠️ Datos incompletos del usuario sin peso/target, usando fallback 2000 kcal")
+            logger.warning("Incomplete profile without weight or target, using fallback calories for user_id=%s", self.user.id)
             return 2000
         
         # Fórmula de Harris-Benedict
@@ -296,8 +295,6 @@ class PersonalizedNutritionService:
             bmr = 88.362 + (13.397 * self.user.weight) + (4.799 * self.user.height) - (5.677 * self.user.age)
         else:  # female
             bmr = 447.593 + (9.247 * self.user.weight) + (3.098 * self.user.height) - (4.330 * self.user.age)
-        
-        logger.info(f"   BMR calculado: {bmr:.0f} kcal")
         
         # Factor de actividad
         activity_factors = {
@@ -310,17 +307,11 @@ class PersonalizedNutritionService:
         
         activity_factor = activity_factors.get(self.user.activity_level, 1.55)
         tdee = bmr * activity_factor
-        logger.info(f"   TDEE (con actividad {self.user.activity_level}): {tdee:.0f} kcal")
         
         # Ajustar según objetivo usando el mismo criterio que daily_calories_target
         goal_adjustment = self.GOAL_CALORIE_ADJUSTMENTS.get(self.user.main_goal, 0)
         result = int(round(tdee + goal_adjustment))
-        logger.info(
-            "   Objetivo: %s → %s kcal (ajuste fijo %+d kcal)",
-            self.user.main_goal,
-            result,
-            goal_adjustment,
-        )
+        logger.info("Calculated daily calories for user_id=%s", self.user.id)
         
         # Si hay calorías anteriores, hacer transición gradual (máximo ±300 kcal por ajuste)
         if previous_calories:
@@ -329,10 +320,10 @@ class PersonalizedNutritionService:
                 # Limitar el cambio a máximo 300 kcal por ajuste
                 if difference > 0:
                     result = previous_calories + 300
-                    logger.info(f"   Transición gradual: limitando aumento a +300 kcal → {result} kcal")
+                    logger.info("Gradual calorie increase capped for user_id=%s", self.user.id)
                 else:
                     result = max(1200, previous_calories - 300)  # Mínimo 1200 kcal
-                    logger.info(f"   Transición gradual: limitando disminución a -300 kcal → {result} kcal")
+                    logger.info("Gradual calorie decrease capped for user_id=%s", self.user.id)
         
         return result
     
@@ -597,7 +588,7 @@ class PersonalizedNutritionService:
             Dict con ingredientes escalados, macros y factor de escala
         """
         logger.info(f"🔧 Calculando cantidades personalizadas para receta '{recipe.name}' (ID: {recipe.id})")
-        logger.info(f"   Usuario ID: {self.user.id}, email: {self.user.email}, Tipo comida: {meal_type}")
+        logger.info("Scaling recipe quantities for user_id=%s meal_type=%s", self.user.id, meal_type)
         
         # Calcular calorías objetivo para esta comida específica
         daily_calories = self.calculate_daily_calories()
@@ -616,10 +607,6 @@ class PersonalizedNutritionService:
         
         # Limitar el factor de escala a un rango razonable (0.5x a 2x)
         scale_factor = max(0.5, min(2.0, scale_factor))
-        
-        logger.info(f"   Receta original: {recipe.calories} kcal")
-        logger.info(f"   Target calorías ({meal_type}): {target_calories:.0f} kcal ({meal_percentage*100:.0f}% del día)")
-        logger.info(f"   Factor de escala: {scale_factor:.2f}x")
         
         from nutrition.ingredient_scaling import scale_ingredient_quantity
 
@@ -978,7 +965,7 @@ class PersonalizedNutritionService:
             Plan actualizado
         """
         if not plan or plan.user != self.user:
-            logger.warning(f"Intento de actualizar plan que no pertenece al usuario {self.user.email}")
+            logger.warning("Refusing to update a plan that does not belong to user_id=%s", self.user.id)
             return plan
         
         # Calcular nuevos valores considerando calorías actuales para transición gradual
@@ -991,7 +978,7 @@ class PersonalizedNutritionService:
         
         # Solo actualizar si el cambio es significativo (>3% o >50 calorías)
         if calorie_change_pct < 3 and abs(new_daily_calories - old_calories) < 50:
-            logger.info(f"Cambio de calorías muy pequeño ({calorie_change_pct:.1f}%), no se actualiza el plan")
+            logger.info("Nutrition plan left unchanged; calorie delta below threshold for user_id=%s", self.user.id)
             return plan
         
         # Guardar valores antiguos para el historial
@@ -1039,7 +1026,7 @@ class PersonalizedNutritionService:
             notes=notes_text,
         )
         
-        logger.info(f"Plan {plan.id} actualizado para usuario {self.user.email}: {old_calories} → {new_daily_calories} kcal")
+        logger.info("Nutrition plan %s updated for user_id=%s", plan.id, self.user.id)
         
         return plan
     
@@ -1062,7 +1049,7 @@ class PersonalizedNutritionService:
             plan and plan.assignments.filter(user=self.user, is_active=True).exists()
         )
         if not plan or not (owns_directly or owns_by_assignment):
-            logger.warning(f"Intento de ajustar plan que no pertenece al usuario {self.user.email}")
+            logger.warning("Refusing to adjust a plan that does not belong to user_id=%s", self.user.id)
             return plan
         
         # Calcular nuevas calorías
@@ -1196,7 +1183,7 @@ class PersonalizedNutritionService:
             notes=notes or f'Ajuste manual de calorías: {old_calories} → {new_daily_calories} kcal ({adjustment_text} kcal). Proteína: {old_protein} → {new_protein}g, Carbohidratos: {old_carbs} → {new_carbs}g, Grasas: {old_fat} → {new_fat}g',
         )
         
-        logger.info(f"Plan {plan.id} ajustado para usuario {self.user.email}: {old_calories} → {new_daily_calories} kcal ({adjustment_text} kcal)")
+        logger.info("Nutrition plan %s calories adjusted for user_id=%s", plan.id, self.user.id)
         
         return plan
 
@@ -1255,12 +1242,12 @@ class PlanAutoUpdateService:
         should_update, update_reason = self.should_update_plan(old_weight, old_goal, old_activity_level)
         
         if not should_update:
-            logger.info(f"No se actualiza plan para {self.user.email}: {update_reason}")
+            logger.info("Nutrition plan left unchanged for user_id=%s", self.user.id)
             return None
         
         active_plan = NutritionPlan.objects.filter(user=self.user, is_active=True).first()
         if not active_plan:
-            logger.warning(f"Usuario {self.user.email} no tiene plan activo para actualizar")
+            logger.warning("No active nutrition plan to update for user_id=%s", self.user.id)
             return None
         
         # Actualizar el plan existente con transición gradual
@@ -1271,7 +1258,7 @@ class PlanAutoUpdateService:
             old_weight=old_weight
         )
         
-        logger.info(f"Plan actualizado automáticamente para {self.user.email}: {update_reason}")
+        logger.info("Nutrition plan auto-updated for user_id=%s", self.user.id)
         
         return updated_plan
 

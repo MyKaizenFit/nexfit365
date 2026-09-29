@@ -275,8 +275,7 @@ def plan_meals_for_selection(request):
     logger = logging.getLogger(__name__)
     
     user = request.user
-    logger.info(f"🍽️ Personalizando comidas para usuario: {user.email} (ID: {user.id})")
-    logger.info(f"📊 Perfil del usuario: peso={user.weight}kg, altura={user.height}cm, edad={user.age}, género={user.gender}, objetivo={user.main_goal}, actividad={user.activity_level}")
+    logger.info("Personalizing meals for user_id=%s", user.id)
     service = PersonalizedNutritionService(user)
     from nutrition.plan_meal_utils import meal_recipe_scaled_macros, recipe_option_payload
     
@@ -1910,9 +1909,7 @@ def adjust_plan(request):
         }, status=status.HTTP_200_OK)
         
     except Exception as e:
-        logger.error(f'Error ajustando plan para usuario {user.email}: {str(e)}')
-        import traceback
-        logger.error(traceback.format_exc())
+        logger.error("Nutrition plan adjustment failed for user_id=%s (%s)", user.id, type(e).__name__)
         return Response(
             {'error': f'Error al ajustar el plan: {str(e)}'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -2452,8 +2449,12 @@ class RecipeViewSet(viewsets.ModelViewSet):
             meal_type = 'lunch'
         
         user = request.user
-        logger.info(f"🍽️ Personalizando receta '{recipe.name}' (ID: {pk}) para usuario: {user.email} (ID: {user.id})")
-        logger.info(f"📊 Perfil: peso={user.weight}kg, altura={user.height}cm, objetivo={user.main_goal}, tipo_comida={meal_type}")
+        logger.info(
+            "Personalizing recipe %s for user_id=%s meal_type=%s",
+            pk,
+            user.id,
+            meal_type,
+        )
         
         # Calcular cantidades personalizadas
         service = PersonalizedNutritionService(user)

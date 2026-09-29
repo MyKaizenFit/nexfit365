@@ -95,10 +95,12 @@ class LoginView(TokenObtainPairView):
                         # Marcar que debe cambiar contraseña
                         user.must_change_password = True
                         user.save()
-            except Exception as e:
+            except Exception as exc:
                 # Si hay error obteniendo el usuario del serializer, intentar del token
-                import traceback
-                traceback.print_exc()
+                logger.error(
+                    "Login could not read user from serializer (%s)",
+                    type(exc).__name__,
+                )
             
             # Si no se obtuvo el usuario del serializer, intentar del token
             if not user and hasattr(response, 'data') and 'access' in response.data:
@@ -110,9 +112,11 @@ class LoginView(TokenObtainPairView):
                     user_id = decoded_token.get('user_id')
                     if user_id:
                         user = User.objects.get(id=user_id)
-                except (InvalidToken, User.DoesNotExist, Exception) as token_error:
-                    import traceback
-                    traceback.print_exc()
+                except (InvalidToken, User.DoesNotExist, Exception) as exc:
+                    logger.error(
+                        "Login could not read user from access token (%s)",
+                        type(exc).__name__,
+                    )
             
             # Agregar información del usuario a la respuesta si se obtuvo
             if user:
@@ -145,9 +149,11 @@ class LoginView(TokenObtainPairView):
                     # Si el usuario debe cambiar contraseña, agregar flag en la respuesta
                     if getattr(user, 'must_change_password', False):
                         response.data['must_change_password'] = True
-                except Exception as user_error:
-                    import traceback
-                    traceback.print_exc()
+                except Exception as exc:
+                    logger.error(
+                        "Login could not attach user payload (%s)",
+                        type(exc).__name__,
+                    )
             else:
                 pass
 
@@ -365,12 +371,12 @@ class RegisterView(APIView):
                         recipient_list=[user.email],
                         fail_silently=True,
                     )
-                    logger.info("✅ Email de bienvenida enviado a %s", user.email)
-                except Exception as e:
+                    logger.info("Welcome email sent for user_id=%s", user.id)
+                except Exception as exc:
                     logger.warning(
-                        "⚠️ No se pudo enviar email de bienvenida a %s: %s",
-                        user.email,
-                        e,
+                        "Welcome email failed for user_id=%s (%s)",
+                        user.id,
+                        type(exc).__name__,
                     )
 
                 
@@ -482,23 +488,21 @@ Equipo NexFit365
                     recipient_list=[user.email],
                     fail_silently=False,
                 )
-                logger.info("✅ Email de reset de contraseña enviado a %s", user.email)
-            except Exception as e:
+                logger.info("Password reset email sent for user_id=%s", user.id)
+            except Exception as exc:
                 # Log del error pero no fallar la request (el usuario no debe saber si el email existe)
                 logger.error(
-                    "❌ Error enviando email de reset a %s: %s — host=%s port=%s",
-                    user.email,
-                    e,
-                    getattr(settings, 'EMAIL_HOST', ''),
-                    getattr(settings, 'EMAIL_PORT', ''),
+                    "Password reset email failed for user_id=%s (%s)",
+                    user.id,
+                    type(exc).__name__,
                 )
             
             return Response({
                 "detail": "Si el email existe, se ha enviado un link de reset"
             }, status=status.HTTP_200_OK)
             
-        except Exception as e:
-            logger.exception("Error procesando forgot-password: %s", e)
+        except Exception as exc:
+            logger.error("Forgot-password request failed (%s)", type(exc).__name__)
             return Response({
                 "detail": "Error procesando la solicitud",
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -591,10 +595,10 @@ class ResetPasswordView(APIView):
                 "detail": "Contraseña actualizada exitosamente"
             }, status=status.HTTP_200_OK)
             
-        except Exception as e:
+        except Exception as exc:
+            logger.error("Password reset failed (%s)", type(exc).__name__)
             return Response({
                 "detail": "Error procesando el reset",
-                "error": str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

@@ -492,7 +492,9 @@ def gdpr_request_deletion(request):
     except Exception as e:
         import logging as _logging
         _logging.getLogger(__name__).warning(
-            "⚠️ No se pudo enviar email RGPD al admin para usuario %s: %s", user.email, e
+            "GDPR deletion admin email failed for user_id=%s (%s)",
+            user.id,
+            type(e).__name__,
         )
 
     try:
@@ -513,7 +515,9 @@ def gdpr_request_deletion(request):
     except Exception as e:
         import logging as _logging
         _logging.getLogger(__name__).warning(
-            "⚠️ No se pudo enviar confirmación RGPD al usuario %s: %s", user.email, e
+            "GDPR deletion confirmation email failed for user_id=%s (%s)",
+            user.id,
+            type(e).__name__,
         )
 
     return Response(

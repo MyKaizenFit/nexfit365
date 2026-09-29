@@ -292,6 +292,30 @@ class TestUserLogin:
         
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
+    def test_login_profile_lookup_error_stays_generic(self, api_client, regular_user, monkeypatch):
+        from api.auth_views import LoginView
+
+        real_get_serializer = LoginView.get_serializer
+        calls = {"n": 0}
+
+        def flaky_get_serializer(self, *args, **kwargs):
+            calls["n"] += 1
+            if calls["n"] > 1:
+                raise RuntimeError("INTERNAL_TEST_EXCEPTION")
+            return real_get_serializer(self, *args, **kwargs)
+
+        monkeypatch.setattr(LoginView, "get_serializer", flaky_get_serializer)
+        response = api_client.post(
+            reverse("auth-login"),
+            {"email": "user@example.com", "password": "UserPass123!"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert "access" in response.data
+        body = response.content.decode()
+        assert "INTERNAL_TEST_EXCEPTION" not in body
+        assert "Traceback" not in body
+
     def test_login_user_inactive(self, api_client):
         """Test de login con usuario inactivo"""
         user = User.objects.create_user(
@@ -463,6 +487,28 @@ class TestResetPassword:
         regular_user.refresh_from_db()
         assert regular_user.check_password("NewPass123!")
         assert regular_user.password_reset_token is None
+
+    def test_reset_password_internal_error_is_not_exposed(self, api_client, regular_user, monkeypatch):
+        token = regular_user.generate_password_reset_token()
+
+        def explode(self, *args, **kwargs):
+            raise RuntimeError("INTERNAL_TEST_EXCEPTION")
+
+        monkeypatch.setattr(User, "save", explode)
+        response = api_client.post(
+            reverse("auth-reset-password"),
+            {
+                "token": token,
+                "new_password": "NewPass123!",
+                "new_password_confirm": "NewPass123!",
+            },
+        )
+
+        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        assert response.data == {"detail": "Error procesando el reset"}
+        body = response.content.decode()
+        assert "INTERNAL_TEST_EXCEPTION" not in body
+        assert "error" not in response.data
 
     def test_reset_password_invalid_token(self, api_client):
         """Test de reset con token inválido"""

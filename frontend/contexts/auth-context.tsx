@@ -78,7 +78,7 @@ const syncInitialRegistrationStatus = async (): Promise<boolean> => {
 
   if (isComplete) {
     localStorage.setItem('initial_form_completed', 'true')
-    localStorage.setItem('user_profile', JSON.stringify(data.profile || {}))
+    localStorage.removeItem('user_profile')
     if (data.form_version) {
       localStorage.setItem('form_version', data.form_version.toString())
     }
