@@ -5,6 +5,7 @@ import types
 from datetime import date
 from decimal import Decimal
 from io import BytesIO
+from PIL import Image
 
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -22,13 +23,8 @@ User = get_user_model()
 
 def make_test_image(name="test.png"):
     file_obj = BytesIO()
-    file_obj.write(
-        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
-        b"\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0bIDATx\x9cc``\x00\x00\x00\x03\x00\x01"
-        b"h&Y\r\x00\x00\x00\x00IEND\xaeB`\x82"
-    )
-    file_obj.seek(0)
-    return SimpleUploadedFile(name, file_obj.read(), content_type="image/png")
+    Image.new("RGB", (1, 1), (1, 2, 3)).save(file_obj, format="PNG")
+    return SimpleUploadedFile(name, file_obj.getvalue(), content_type="image/png")
 
 
 @pytest.fixture

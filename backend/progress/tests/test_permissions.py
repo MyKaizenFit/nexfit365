@@ -21,13 +21,12 @@ User = get_user_model()
 
 
 def make_test_image(name="test.png"):
-    # PNG mínimo válido (1x1)
-    png_bytes = (
-        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
-        b"\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0bIDATx\x9cc``\x00\x00\x00\x03\x00\x01"
-        b"h&Y\r\x00\x00\x00\x00IEND\xaeB`\x82"
-    )
-    return SimpleUploadedFile(name, png_bytes, content_type="image/png")
+    from io import BytesIO
+    from PIL import Image
+
+    buffer = BytesIO()
+    Image.new("RGB", (1, 1), (1, 2, 3)).save(buffer, format="PNG")
+    return SimpleUploadedFile(name, buffer.getvalue(), content_type="image/png")
 
 
 @pytest.fixture
