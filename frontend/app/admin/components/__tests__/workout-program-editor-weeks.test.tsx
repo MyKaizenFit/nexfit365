@@ -153,6 +153,12 @@ async function expectWorkoutVisible(name: string) {
   })
 }
 
+// The detail panel follows today's weekday. These fixtures live on Monday,
+// so select that chip instead of assuming CI runs on a Monday.
+async function selectAssignedDay(user: ReturnType<typeof userEvent.setup>, dayLabel: string) {
+  await user.click(await screen.findByRole('button', { name: new RegExp(dayLabel) }))
+}
+
 async function openCalendar(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole('button', { name: 'Calendario' }))
 }
@@ -203,7 +209,9 @@ describe('editor de semanas del programa de usuario', () => {
       },
     })
 
+    const user = userEvent.setup()
     render(<WorkoutProgramEditor userId="21" onSave={jest.fn()} />)
+    await selectAssignedDay(user, 'Lunes W2')
 
     await expectWorkoutVisible('Hip thrust')
     expect(screen.queryByText('Elevación lateral')).not.toBeInTheDocument()
@@ -230,7 +238,9 @@ describe('editor de semanas del programa de usuario', () => {
       },
     })
 
+    const user = userEvent.setup()
     render(<WorkoutProgramEditor userId="21" initialWeek={9} onSave={jest.fn()} />)
+    await selectAssignedDay(user, 'Lunes W9')
 
     await expectWorkoutVisible('Elevación lateral')
     expect(screen.getByTestId('client-current-week-indicator')).toHaveTextContent(/Editando semana 9/)
@@ -249,6 +259,7 @@ describe('editor de semanas del programa de usuario', () => {
     })
 
     render(<WorkoutProgramEditor userId="21" onSave={jest.fn()} />)
+    await selectAssignedDay(user, 'Lunes W2')
     await expectWorkoutVisible('Hip thrust')
 
     await user.click(screen.getByRole('button', { name: 'Guardar' }))
@@ -278,7 +289,9 @@ describe('editor de semanas del programa de usuario', () => {
       },
     })
 
+    const user = userEvent.setup()
     render(<WorkoutProgramEditor userId="21" onSave={jest.fn()} />)
+    await selectAssignedDay(user, 'Lunes asignado')
     await expectWorkoutVisible('Hip thrust')
     expect(screen.queryByText('Elevación lateral')).not.toBeInTheDocument()
     expect(screen.getByTestId('reference-template-badge')).toHaveTextContent(/Referencia \(plantilla\)/)
@@ -421,6 +434,7 @@ describe('editor de semanas del programa de usuario', () => {
 
     const user = userEvent.setup()
     render(<WorkoutProgramEditor userId="21" onSave={jest.fn()} />)
+    await selectAssignedDay(user, 'Lunes W2')
     await expectWorkoutVisible('Hip thrust')
 
     // Navegar a semana 3 (fetch lento) y luego volver a 2 antes de que responda.
