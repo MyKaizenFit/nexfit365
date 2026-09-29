@@ -1,13 +1,22 @@
 import pytest
+from io import BytesIO
+
 from django.test import TestCase
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 from datetime import timedelta
 from decimal import Decimal
 from django.core.files.uploadedfile import SimpleUploadedFile
+from PIL import Image
 
 from progress.models import ProgressPhoto, WeightEntry, BodyMeasurement
 from accounts.models import CustomUser
+
+
+def _tiny_jpeg(name):
+    buffer = BytesIO()
+    Image.new("RGB", (1, 1), (1, 2, 3)).save(buffer, format="JPEG")
+    return SimpleUploadedFile(name, buffer.getvalue(), content_type="image/jpeg")
 
 
 @pytest.mark.django_db
@@ -23,7 +32,7 @@ class ProgressPhotoModelTest(TestCase):
         """Test crear una foto de progreso válida"""
         photo = ProgressPhoto.objects.create(
             user=self.user,
-            photo=SimpleUploadedFile("test.jpg", b"fake-image-content", content_type="image/jpeg"),
+            photo=_tiny_jpeg("test.jpg"),
             photo_type="front",
             date=self.today,
             weight=Decimal("70.5"),
@@ -52,13 +61,13 @@ class ProgressPhotoModelTest(TestCase):
         """El modelo actual permite fotos duplicadas por tipo/fecha"""
         ProgressPhoto.objects.create(
             user=self.user,
-            photo=SimpleUploadedFile("a.jpg", b"img-a", content_type="image/jpeg"),
+            photo=_tiny_jpeg("a.jpg"),
             photo_type="front",
             date=self.today
         )
         ProgressPhoto.objects.create(
             user=self.user,
-            photo=SimpleUploadedFile("b.jpg", b"img-b", content_type="image/jpeg"),
+            photo=_tiny_jpeg("b.jpg"),
             photo_type="front",
             date=self.today
         )
@@ -69,7 +78,7 @@ class ProgressPhotoModelTest(TestCase):
         """Test la representación string del modelo"""
         photo = ProgressPhoto.objects.create(
             user=self.user,
-            photo=SimpleUploadedFile("side.jpg", b"img-side", content_type="image/jpeg"),
+            photo=_tiny_jpeg("side.jpg"),
             photo_type="side",
             date=self.today
         )
