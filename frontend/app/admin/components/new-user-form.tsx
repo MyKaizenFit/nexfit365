@@ -72,12 +72,12 @@ export function NewUserForm({ onSave, onCancel }: { onSave: (userData: any) => v
   // Calcular edad mínima y máxima permitida
   const getMinDate = () => {
     const today = new Date()
-    return new Date(today.getFullYear() - 100, today.getMonth(), today.getDate())
+    return new Date(today.getFullYear() - 120, today.getMonth(), today.getDate())
   }
 
   const getMaxDate = () => {
     const today = new Date()
-    return new Date(today.getFullYear() - 14, today.getMonth(), today.getDate())
+    return new Date(today.getFullYear() - 18, today.getMonth(), today.getDate())
   }
 
   const calculateAge = (birthDate: Date | null): number | null => {
@@ -151,10 +151,10 @@ export function NewUserForm({ onSave, onCancel }: { onSave: (userData: any) => v
       // Validar edad en el paso 1
       if (currentStep === 1 && userData.birthDate) {
         const age = calculateAge(userData.birthDate)
-        if (age !== null && (age < 14 || age > 100)) {
+        if (age !== null && (age < 18 || age > 120)) {
           toast({
             title: "❌ Edad no válida",
-            description: "La edad debe estar entre 14 y 100 años",
+            description: "La edad debe estar entre 18 y 120 años",
             variant: "destructive",
           })
           return
@@ -187,10 +187,10 @@ export function NewUserForm({ onSave, onCancel }: { onSave: (userData: any) => v
     // Validar edad antes de enviar
     if (userData.birthDate) {
       const age = calculateAge(userData.birthDate)
-      if (age !== null && (age < 14 || age > 100)) {
+      if (age !== null && (age < 18 || age > 120)) {
         toast({
           title: "❌ Edad no válida",
-          description: "La edad debe estar entre 14 y 100 años",
+          description: "La edad debe estar entre 18 y 120 años",
           variant: "destructive",
         })
         return
@@ -409,8 +409,8 @@ export function NewUserForm({ onSave, onCancel }: { onSave: (userData: any) => v
                         initialFocus
                         locale={es}
                         captionLayout="dropdown"
-                        fromYear={new Date().getFullYear() - 100}
-                        toYear={new Date().getFullYear() - 14}
+                        fromYear={new Date().getFullYear() - 120}
+                        toYear={new Date().getFullYear() - 18}
                       />
                     </PopoverContent>
                   </Popover>
@@ -419,8 +419,8 @@ export function NewUserForm({ onSave, onCancel }: { onSave: (userData: any) => v
                       Edad: {calculateAge(userData.birthDate)} años
                       {(() => {
                         const age = calculateAge(userData.birthDate)
-                        if (age !== null && (age < 14 || age > 100)) {
-                          return <span className="text-red-500 ml-2">(Edad no válida: debe estar entre 14 y 100 años)</span>
+                        if (age !== null && (age < 18 || age > 120)) {
+                          return <span className="text-red-500 ml-2">(Edad no válida: debe estar entre 18 y 120 años)</span>
                         }
                         return null
                       })()}

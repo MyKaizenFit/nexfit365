@@ -230,7 +230,7 @@ function InitialRegistrationFormComponent({
       if (!formState.birth_date) newErrors.birth_date = 'La fecha de nacimiento es requerida';
       else {
         const age = calculateAge(formState.birth_date);
-        if (age < 13 || age > 120) newErrors.birth_date = 'Debes tener entre 13 y 120 años';
+        if (age < 18 || age > 120) newErrors.birth_date = 'Debes tener entre 18 y 120 años';
       }
       if (!formState.gender) newErrors.gender = 'Selecciona tu género';
     }

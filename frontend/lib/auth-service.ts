@@ -35,7 +35,9 @@ export interface RegisterCredentials {
   password_confirm: string
   first_name?: string
   last_name?: string
+  birth_date?: string
   role?: string
+  legal?: Record<string, { version: string }>
 }
 
 export interface AuthTokens {

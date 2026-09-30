@@ -5,6 +5,8 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
 
+from legal.placeholders import contains_unpublished_placeholder
+
 
 class DocumentCode(models.TextChoices):
     PRIVACY = "privacy", "Privacidad"
@@ -130,6 +132,8 @@ class LegalDocument(models.Model):
 
     def save(self, *args, **kwargs):
         self.content_hash = legal_content_hash(self.title, self.body)
+        if (self.is_active or self.published_at) and contains_unpublished_placeholder(self.title, self.body):
+            raise ValidationError("Un documento con marcadores sin resolver no puede publicarse.")
         previous = None
         if self.pk:
             previous = type(self).objects.filter(pk=self.pk).first()

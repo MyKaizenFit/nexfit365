@@ -12,6 +12,8 @@ import { Label } from "@/components/ui/label"
 import { useAuth } from "@/contexts/auth-context"
 import { useRouter, useSearchParams } from "next/navigation"
 import { appPath } from "@/lib/app-path"
+import { productAgeMessage } from "@/lib/age"
+import { getActiveLegalDocuments, type LegalDocumentSummary } from "@/lib/legal-service"
 
 interface FormData {
   email: string
@@ -19,6 +21,7 @@ interface FormData {
   confirmPassword: string
   name: string
   resetEmail: string
+  birthDate: string
 }
 
 function AuthPageContent() {
@@ -30,6 +33,9 @@ function AuthPageContent() {
   const [showForgotPassword, setShowForgotPassword] = useState(false)
   const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({})
   const [rememberSession, setRememberSession] = useState(true)
+  const [requiredDocs, setRequiredDocs] = useState<LegalDocumentSummary[]>([])
+  const [privacyRead, setPrivacyRead] = useState(false)
+  const [termsAccepted, setTermsAccepted] = useState(false)
 
   const [formData, setFormData] = useState({
     email: "",
@@ -37,6 +43,7 @@ function AuthPageContent() {
     confirmPassword: "",
     name: "",
     resetEmail: "",
+    birthDate: "",
   })
 
   const { login, register, forgotPassword, isLoading, error, clearError } = useAuth()
@@ -79,6 +86,17 @@ function AuthPageContent() {
     setIsLogin(registerParam !== 'true')
   }, [searchParams])
 
+  useEffect(() => {
+    if (isLogin) return
+    getActiveLegalDocuments()
+      .then((documents) => {
+        setRequiredDocs(documents.filter((document) =>
+          document.requires_acceptance && (document.code === 'privacy' || document.code === 'terms')
+        ))
+      })
+      .catch(() => setRequiredDocs([]))
+  }, [isLogin])
+
   // Limpiar errores cuando cambie el formulario
   useEffect(() => {
     if (error) {
@@ -110,6 +128,14 @@ function AuthPageContent() {
       if (formData.password && formData.confirmPassword && formData.password !== formData.confirmPassword) {
         errors.confirmPassword = 'Las contraseñas no coinciden'
       }
+      const ageMessage = productAgeMessage(formData.birthDate)
+      if (ageMessage) errors.birthDate = ageMessage
+      if (requiredDocs.some((document) => document.code === 'privacy') && !privacyRead) {
+        errors.privacy = 'Confirma que has leído la Política de Privacidad.'
+      }
+      if (requiredDocs.some((document) => document.code === 'terms') && !termsAccepted) {
+        errors.terms = 'Debes aceptar los Términos para crear la cuenta.'
+      }
     }
     
     setValidationErrors(errors)
@@ -136,13 +162,19 @@ function AuthPageContent() {
 
           try {
         // Registrar usuario
+        const legal: Record<string, { version: string }> = {}
+        for (const document of requiredDocs) {
+          legal[document.code] = { version: document.version }
+        }
         await register({
           email: formData.email.trim().toLowerCase(),
           password: formData.password,
           password_confirm: formData.confirmPassword,
           first_name: formData.name.split(' ')[0] || formData.name,
           last_name: formData.name.split(' ').slice(1).join(' ') || '',
+          birth_date: formData.birthDate,
           role: 'basic',
+          legal,
         })
         // El contexto ya maneja las notificaciones y redirección
       } catch (error: any) {
@@ -424,6 +456,40 @@ function AuthPageContent() {
                   {validationErrors.confirmPassword}
                 </p>
               )}
+            </div>
+          )}
+
+          {!isLogin && (
+            <div className="space-y-3">
+              <Label htmlFor="birth-date">Fecha de nacimiento</Label>
+              <Input
+                id="birth-date"
+                name="birth-date"
+                type="date"
+                value={formData.birthDate}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => handleInputChange("birthDate", e.target.value)}
+              />
+              {validationErrors.birthDate && (
+                <p className="text-xs text-red-500">{validationErrors.birthDate}</p>
+              )}
+              {requiredDocs.some((document) => document.code === 'privacy') && (
+                <div className="flex items-start gap-3">
+                  <Checkbox id="privacy-read" checked={privacyRead} onCheckedChange={(value) => setPrivacyRead(Boolean(value))} />
+                  <Label htmlFor="privacy-read" className="text-sm">
+                    He leído la <a className="underline" href={appPath('/privacidad')}>Política de Privacidad</a>.
+                  </Label>
+                </div>
+              )}
+              {validationErrors.privacy && <p className="text-xs text-red-500">{validationErrors.privacy}</p>}
+              {requiredDocs.some((document) => document.code === 'terms') && (
+                <div className="flex items-start gap-3">
+                  <Checkbox id="terms-accepted" checked={termsAccepted} onCheckedChange={(value) => setTermsAccepted(Boolean(value))} />
+                  <Label htmlFor="terms-accepted" className="text-sm">
+                    Acepto los <a className="underline" href={appPath('/terminos')}>Términos y Condiciones</a>.
+                  </Label>
+                </div>
+              )}
+              {validationErrors.terms && <p className="text-xs text-red-500">{validationErrors.terms}</p>}
             </div>
           )}
 

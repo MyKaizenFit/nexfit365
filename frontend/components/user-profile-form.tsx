@@ -39,7 +39,7 @@ const userProfileSchema = z.object({
   phone_number: z.string().min(8, 'El número debe tener al menos 8 dígitos'),
   
   // Información física
-  age: z.number().min(13, 'La edad mínima es 13 años').max(120, 'La edad máxima es 120 años'),
+  age: z.number().min(18, 'La edad mínima es 18 años').max(120, 'La edad máxima es 120 años'),
   gender: z.enum(['male', 'female', 'other'], { required_error: 'Selecciona tu sexo' }),
   height: z.number().min(50, 'La altura mínima es 50 cm').max(250, 'La altura máxima es 250 cm'),
   weight: z.number().min(20, 'El peso mínimo es 20 kg').max(300, 'El peso máximo es 300 kg'),

@@ -20,6 +20,7 @@ const protectedRoutes = [
   '/achievements',
   '/recommendations',
   '/initial-registration',
+  '/aceptacion-legal',
 ]
 
 // Rutas que solo pueden acceder usuarios no autenticados
@@ -90,7 +91,12 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl)
   }
 
-  if (isProtectedRoute && hasUsableAccessToken && pathname !== '/initial-registration') {
+  if (
+    isProtectedRoute &&
+    hasUsableAccessToken &&
+    pathname !== '/initial-registration' &&
+    pathname !== '/aceptacion-legal'
+  ) {
     try {
       const isAdmin = isAdminJwtPayload(accessPayload) || adminFromMarker
 

@@ -9,7 +9,8 @@ import { NotificationContainer } from '@/components/ui/notification-toast'
 import { RegisterServiceWorker } from './register-sw'
 import { ClientVersionGuard } from './client-version-guard'
 import { ThemeProvider } from '@/components/theme-provider'
-import { CookieBanner } from '@/components/cookie-banner'
+import { ClearLegacyCookieConsent } from '@/components/legal/clear-legacy-cookie-consent'
+import { LegalPendingGate } from '@/components/legal/legal-pending-gate'
 import { appPath } from '@/lib/app-path'
 
 const frontendBaseUrl = process.env.NEXT_PUBLIC_FRONTEND_URL
@@ -109,11 +110,12 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <AuthProvider>
+            <LegalPendingGate />
             {children}
             <Toaster />
             <NotificationContainer />
           </AuthProvider>
-                  <CookieBanner />
+          <ClearLegacyCookieConsent />
         </ThemeProvider>
       </body>
     </html>

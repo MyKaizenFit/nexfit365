@@ -431,6 +431,16 @@ class AdminUserSerializer(serializers.ModelSerializer):
 class UserProfileUpdateSerializer(serializers.ModelSerializer):
     """Serializer para actualizar el perfil del usuario"""
 
+    def validate_birth_date(self, value):
+        from accounts.age import product_age_message
+
+        if not value:
+            return value
+        message = product_age_message(value)
+        if message:
+            raise serializers.ValidationError(message)
+        return value
+
     dietary_restrictions = FlexibleStringListField(required=False)
     allergies = FlexibleStringListField(required=False)
     medical_conditions = FlexibleStringListField(required=False)
@@ -480,6 +490,16 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             'last_name': {'required': True},
             'main_goal': {'required': False},
         }
+
+    def validate_birth_date(self, value):
+        from accounts.age import product_age_message
+
+        if not value:
+            return value
+        message = product_age_message(value)
+        if message:
+            raise serializers.ValidationError(message)
+        return value
     
     def validate(self, attrs):
         if attrs['password'] != attrs['password_confirm']:
@@ -580,16 +600,13 @@ class InitialRegistrationSerializer(serializers.ModelSerializer):
         }
     
     def validate_birth_date(self, value):
-        from datetime import date
-        if value and value > date.today():
-            raise serializers.ValidationError("La fecha de nacimiento no puede ser en el futuro")
-        # Verificar que la edad sea al menos 13 años
-        today = date.today()
-        age = today.year - value.year - ((today.month, today.day) < (value.month, value.day))
-        if age < 13:
-            raise serializers.ValidationError("Debes tener al menos 13 años para registrarte")
-        if age > 120:
-            raise serializers.ValidationError("La fecha de nacimiento no es válida")
+        from accounts.age import product_age_message
+
+        if not value:
+            return value
+        message = product_age_message(value)
+        if message:
+            raise serializers.ValidationError(message)
         return value
     
     def validate_height(self, value):

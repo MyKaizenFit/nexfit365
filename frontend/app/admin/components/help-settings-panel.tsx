@@ -643,6 +643,7 @@ export function HelpSettingsPanel() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="terms_url">URL de Términos de Servicio</Label>
+              <p className="text-xs text-muted-foreground">Ruta pública: /nexfit/terminos</p>
               <Input
                 id="terms_url"
                 type="url"
@@ -653,6 +654,7 @@ export function HelpSettingsPanel() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="privacy_url">URL de Política de Privacidad</Label>
+              <p className="text-xs text-muted-foreground">Ruta pública: /nexfit/privacidad. Salud: /nexfit/salud. Cookies: /nexfit/cookies.</p>
               <Input
                 id="privacy_url"
                 type="url"

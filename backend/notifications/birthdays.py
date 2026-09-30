@@ -30,9 +30,15 @@ def get_admin_users():
     ).distinct()
 
 
+def birthday_notices_enabled(user) -> bool:
+    """Opt-in service notice. Default off. Not health consent and not marketing."""
+    preferences = getattr(user, "notification_preferences", None) or {}
+    return bool(preferences.get("birthday"))
+
+
 def ensure_user_birthday_notification(user, today=None) -> bool:
     today = today or timezone.localdate()
-    if not is_birthday_today(user, today):
+    if not is_birthday_today(user, today) or not birthday_notices_enabled(user):
         return False
 
     exists = Notification.objects.filter(

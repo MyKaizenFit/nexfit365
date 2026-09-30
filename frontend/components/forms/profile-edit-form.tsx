@@ -21,7 +21,7 @@ const profileEditSchema = z.object({
   first_name: z.string().min(2, 'El nombre debe tener al menos 2 caracteres'),
   last_name: z.string().min(2, 'El apellido debe tener al menos 2 caracteres'),
   phone_number: z.string().optional(),
-  age: z.number().min(13, 'La edad mínima es 13 años').max(120, 'La edad máxima es 120 años').optional(),
+  age: z.number().min(18, 'La edad mínima es 18 años').max(120, 'La edad máxima es 120 años').optional(),
   gender: z.enum(['male', 'female', 'other']).optional(),
   height: z.number().min(50, 'La altura mínima es 50 cm').max(250, 'La altura máxima es 250 cm').optional(),
   weight: z.number().min(20, 'El peso mínimo es 20 kg').max(300, 'El peso máximo es 300 kg').optional(),

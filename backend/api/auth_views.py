@@ -350,9 +350,25 @@ class RegisterView(APIView):
     def post(self, request):
         serializer = UserRegistrationSerializer(data=request.data)
         if serializer.is_valid():
+            from django.core.exceptions import ValidationError
+            from django.db import transaction
+            from legal.services import (
+                record_registration_acknowledgements,
+                registration_documents_confirmed,
+            )
+
             try:
-                user = serializer.save()
-                
+                documents = registration_documents_confirmed(request.data)
+            except ValidationError:
+                return Response(
+                    {"legal": "Debes confirmar los documentos vigentes antes de crear la cuenta."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            try:
+                with transaction.atomic():
+                    user = serializer.save()
+                    record_registration_acknowledgements(user, documents)
+
                 # Generar tokens JWT para login automático
                 from rest_framework_simplejwt.tokens import RefreshToken
                 refresh = RefreshToken.for_user(user)
