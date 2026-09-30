@@ -21,7 +21,7 @@ No se afirma que la fecha sirva solo para la edad.
 - Acuse de la política: transparencia, no un consentimiento global.
 - Registros legales mínimos: interés legítimo 6.1.f, para poder acreditar qué versión se mostró. El artículo 17.3.e no es una base. Solo documenta que la supresión no procede cuando la conservación sea necesaria para reclamaciones.
 - Aviso de cumpleaños: interés legítimo 6.1.f, con oposición fácil. `IMPLEMENTED` como opt-in apagado por defecto. Pendiente la evaluación formal de interés legítimo.
-- Datos de salud: consentimiento explícito 9.2.a. `PLANNED`. No se pide en esta entrega.
+- Datos de salud: consentimiento explícito 9.2.a. El mecanismo está implementado y no se pide mientras no haya un aviso publicado. La retirada no borra todavía los datos ya guardados.
 
 ## Derechos
 

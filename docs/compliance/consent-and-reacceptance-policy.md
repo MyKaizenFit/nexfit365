@@ -9,8 +9,15 @@
 - Una versión con `requires_reacceptance` deja a la persona en pendiente sin borrar el evento anterior. El acceso ordinario se bloquea. Siguen disponibles documentos legales, exportación, solicitud de eliminación y cierre de sesión.
 - El personal interno (`is_staff`) no entra en esa puerta, para no bloquear la operación.
 
+## Implementado en salud
+
+- `consent_granted` y `consent_withdrawn` por finalidad, con el aviso de salud vigente.
+- Sin aviso activo que exija consentimiento, no se bloquea ninguna función.
+- Una versión con `requires_reacceptance` deja esa finalidad en pendiente. El evento anterior no se borra.
+- Retirar detiene el uso nuevo al momento. El borrado de lo ya guardado queda para la fase siguiente.
+
 ## Planificado
 
-- Consentimiento de salud `consent_granted`, explícito, no premarcado, retirable, independiente del alta.
+- Borrado de los datos de salud cuya única base era el consentimiento retirado. `PHASE 1D-C CLEANUP=PLANNED_NOT_IMPLEMENTED`.
 - Marketing: apagado. No hay casilla ni eventos de marketing. El código de documento puede existir para más adelante.
 - El correo masivo de administración todavía admite texto libre. El freno para que no se use como marketing automático queda pendiente, porque esa vista ya está en otro cambio abierto.

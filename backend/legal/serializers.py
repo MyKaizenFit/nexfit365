@@ -55,12 +55,29 @@ class LegalEventCreateSerializer(serializers.Serializer):
     code = serializers.ChoiceField(choices=LegalDocument._meta.get_field("code").choices)
     version = serializers.CharField(max_length=32)
     locale = serializers.CharField(max_length=10, default=DEFAULT_LOCALE)
-    purpose = serializers.ChoiceField(choices=Purpose.choices)
+    purpose = serializers.ChoiceField(choices=Purpose.choices, required=False)
+    purposes = serializers.ListField(
+        child=serializers.ChoiceField(choices=Purpose.choices),
+        required=False,
+        allow_empty=False,
+    )
     event_type = serializers.ChoiceField(choices=EventType.choices)
     source = serializers.ChoiceField(choices=EventSource.choices)
     legal_basis = serializers.ChoiceField(choices=LegalBasis.choices, required=False, allow_blank=True)
 
     def validate(self, attrs):
+        purposes = list(attrs.get("purposes") or [])
+        purpose = attrs.get("purpose")
+        if purpose and purpose not in purposes:
+            purposes.insert(0, purpose)
+        if not purposes:
+            raise serializers.ValidationError({"purpose": "Indica la finalidad."})
+        deduped = []
+        for item in purposes:
+            if item not in deduped:
+                deduped.append(item)
+        attrs["purposes"] = deduped
+        attrs["purpose"] = deduped[0]
         attrs["legal_basis"] = attrs.get("legal_basis") or ""
         attrs["locale"] = attrs.get("locale") or DEFAULT_LOCALE
         return attrs

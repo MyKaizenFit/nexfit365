@@ -8,4 +8,4 @@ Estos términos se rigen por la legislación española, sin perjuicio de las nor
 
 No se designa un juzgado concreto y no se priva a las personas consumidoras de los fueros imperativos.
 
-El aviso de salud, el consentimiento de salud y su retirada están descritos en `health-data-notice.md`. La retirada y el borrado asociado siguen `PLANNED`.
+El aviso de salud, el consentimiento y la retirada están descritos en `health-data-notice.md`. La retirada detiene el uso nuevo. El borrado de lo ya guardado sigue `PLANNED`.

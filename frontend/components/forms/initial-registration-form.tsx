@@ -8,6 +8,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, ChevronLeft, ChevronRight, Check, User, Activity, Target, Calendar } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import Link from 'next/link';
+import { appPath } from '@/lib/app-path';
+import { getLegalStatus, recordLegalEvent } from '@/lib/legal-service';
 
 const ALLERGEN_OPTIONS = [
   { value: 'gluten', label: 'Gluten', emoji: '🌾' },
@@ -86,6 +89,9 @@ function InitialRegistrationFormComponent({
 }: InitialRegistrationFormProps) {
   const [currentStep, setCurrentStep] = useState(1);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [healthEnforcement, setHealthEnforcement] = useState(false);
+  const [healthVersion, setHealthVersion] = useState('');
+  const [coreConsent, setCoreConsent] = useState(false);
   
   // Usar un objeto para el estado del formulario
   const [formState, setFormState] = useState<FormData>({
@@ -109,6 +115,15 @@ function InitialRegistrationFormComponent({
 
   // Ref para evitar cargar datos más de una vez
   const initialDataLoadedRef = useRef(false);
+
+  useEffect(() => {
+    getLegalStatus()
+      .then((status) => {
+        setHealthEnforcement(Boolean(status.health?.enforcement_active));
+        setHealthVersion(status.health?.document?.version || '');
+      })
+      .catch(() => undefined);
+  }, []);
   
   // Ref para el input de fecha
   const dateInputRef = useRef<HTMLInputElement>(null);
@@ -232,7 +247,11 @@ function InitialRegistrationFormComponent({
         const age = calculateAge(formState.birth_date);
         if (age < 18 || age > 120) newErrors.birth_date = 'Debes tener entre 18 y 120 años';
       }
-      if (!formState.gender) newErrors.gender = 'Selecciona tu género';
+      if (!healthEnforcement || coreConsent) {
+        if (!formState.gender) newErrors.gender = 'Selecciona tu género';
+      } else if (formState.gender) {
+        newErrors.core_consent = 'Marca el consentimiento para guardar el género. La cuenta puede continuar sin ese dato.';
+      }
     }
 
     if (step === 2) {
@@ -240,16 +259,22 @@ function InitialRegistrationFormComponent({
       const weight = Number(formState.weight);
       const targetWeight = formState.target_weight ? Number(formState.target_weight) : null;
 
-      if (!formState.height || isNaN(height) || height < 100 || height > 210) {
+      const requireBody = !healthEnforcement || coreConsent;
+      if (requireBody && (!formState.height || isNaN(height) || height < 100 || height > 210)) {
         newErrors.height = 'Altura inválida (100-210 cm)';
       }
-      if (!formState.weight || isNaN(weight) || weight < 30 || weight > 300) {
+      if (requireBody && (!formState.weight || isNaN(weight) || weight < 30 || weight > 300)) {
         newErrors.weight = 'Peso inválido (30-300 kg)';
       }
       if (targetWeight !== null && (isNaN(targetWeight) || targetWeight < 50 || targetWeight > 200)) {
         newErrors.target_weight = 'Peso objetivo inválido (50-200 kg)';
       }
-      if (!formState.activity_level) newErrors.activity_level = 'Selecciona tu nivel de actividad';
+      if ((!healthEnforcement || coreConsent) && !formState.activity_level) {
+        newErrors.activity_level = 'Selecciona tu nivel de actividad';
+      }
+      if (healthEnforcement && !coreConsent && (formState.height || formState.weight || formState.activity_level || formState.allergies.length > 0 || formState.medical_conditions.trim())) {
+        newErrors.core_consent = 'Marca el consentimiento para guardar datos de salud. La cuenta puede continuar sin ellos.';
+      }
       if (formState.training_days.length === 0) newErrors.training_days = 'Selecciona al menos un día';
       if (!formState.training_location) newErrors.training_location = 'Selecciona dónde entrenas';
     }
@@ -277,6 +302,22 @@ function InitialRegistrationFormComponent({
 
     if (!validateStep(3)) return;
 
+    if (healthEnforcement && coreConsent) {
+      try {
+        await recordLegalEvent({
+          code: 'health_notice',
+          version: healthVersion,
+          purposes: ['health_profile', 'nutrition', 'workouts'],
+          event_type: 'consent_granted',
+          source: 'initial_registration',
+        });
+      } catch (error) {
+        setErrors({ core_consent: error instanceof Error ? error.message : 'No se ha podido registrar el consentimiento.' });
+        return;
+      }
+    }
+
+    const includeHealth = !healthEnforcement || coreConsent;
     const submitData = {
       first_name: formState.first_name.trim(),
       last_name: formState.last_name.trim(),
@@ -284,17 +325,17 @@ function InitialRegistrationFormComponent({
       // Asegurar que el teléfono solo contenga números
       phone_number: formState.phone_number.replace(/\D/g, ''),
       birth_date: formState.birth_date,
-      gender: formState.gender,
-      height: Number(formState.height),
-      weight: Number(formState.weight),
-      target_weight: formState.target_weight ? Number(formState.target_weight) : undefined,
-      activity_level: formState.activity_level,
+      gender: includeHealth ? formState.gender : undefined,
+      height: includeHealth && formState.height ? Number(formState.height) : undefined,
+      weight: includeHealth && formState.weight ? Number(formState.weight) : undefined,
+      target_weight: includeHealth && formState.target_weight ? Number(formState.target_weight) : undefined,
+      activity_level: includeHealth ? formState.activity_level : undefined,
       training_days: formState.training_days,
       training_days_per_week: formState.training_days.length,
       training_location: formState.training_location,
       main_goal: formState.main_goal,
-      allergies: formState.allergies.length > 0 ? formState.allergies : undefined,
-      medical_conditions: formState.medical_conditions.trim() || undefined,
+      allergies: includeHealth && formState.allergies.length > 0 ? formState.allergies : undefined,
+      medical_conditions: includeHealth ? (formState.medical_conditions.trim() || undefined) : undefined,
       disliked_foods: formState.disliked_foods.trim() || undefined,
     };
 
@@ -445,7 +486,25 @@ function InitialRegistrationFormComponent({
                   </div>
                 </FormField>
 
-                <FormField label="Género" name="gender" required error={errors.gender}>
+                {healthEnforcement && (
+                  <div className="md:col-span-2 space-y-2 rounded border p-3">
+                    <p>
+                      Los datos de salud son opcionales. La cuenta puede existir sin ellos.{' '}
+                      <Link className="underline" href={appPath('/salud')}>Leer el aviso de salud</Link>
+                    </p>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={coreConsent}
+                        onChange={(event) => setCoreConsent(event.target.checked)}
+                      />
+                      Quiero que se usen mi perfil, la nutrición personalizada y las adaptaciones de entrenamiento
+                    </label>
+                    {errors.core_consent && <p className="text-red-600">{errors.core_consent}</p>}
+                  </div>
+                )}
+
+                <FormField label="Género" name="gender" required={!healthEnforcement || coreConsent} error={errors.gender}>
                   <div className="flex gap-2">
                     {[
                       { value: 'male', label: '👨 Masculino' },
@@ -476,7 +535,7 @@ function InitialRegistrationFormComponent({
           {currentStep === 2 && (
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <FormField label="Altura (cm)" name="height" required error={errors.height}>
+                <FormField label="Altura (cm)" name="height" required={!healthEnforcement || coreConsent} error={errors.height}>
                   <Input
                     id="height"
                     type="text"
@@ -490,7 +549,7 @@ function InitialRegistrationFormComponent({
                   />
                 </FormField>
 
-                <FormField label="Peso actual (kg)" name="weight" required error={errors.weight}>
+                <FormField label="Peso actual (kg)" name="weight" required={!healthEnforcement || coreConsent} error={errors.weight}>
                   <Input
                     id="weight"
                     type="text"
@@ -519,7 +578,7 @@ function InitialRegistrationFormComponent({
                 </FormField>
               </div>
 
-              <FormField label="Nivel de actividad diaria" name="activity_level" required error={errors.activity_level}>
+              <FormField label="Nivel de actividad diaria" name="activity_level" required={!healthEnforcement || coreConsent} error={errors.activity_level}>
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
                   {[
                     { value: 'sedentary', label: 'Sedentario', emoji: '🪑' },

@@ -524,6 +524,10 @@ class PersonalizedWorkoutService:
     
     def get_recommendations(self) -> Dict[str, any]:
         """Obtiene recomendaciones de entrenamiento basadas en el perfil del usuario"""
+        if self.user.injuries_or_medical_issues:
+            from legal.health import require_health_consent
+
+            require_health_consent(self.user, "workouts")
         recommendations = {
             'workout_level': self.determine_workout_level(),
             'workout_goal': self.determine_workout_goal(),
@@ -555,7 +559,6 @@ class PersonalizedWorkoutService:
             recommendations['tips'].append("Aprovecha el equipamiento del gimnasio para variedad en tus entrenamientos")
             recommendations['tips'].append("Progresión en peso es más fácil con acceso a equipamiento completo")
         
-        # Consejos basados en lesiones
         if self.user.injuries_or_medical_issues:
             recommendations['tips'].append("Consulta con un profesional antes de comenzar cualquier rutina de ejercicio")
             recommendations['tips'].append("Evita ejercicios que puedan agravar tus lesiones existentes")

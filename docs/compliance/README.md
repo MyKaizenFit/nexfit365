@@ -16,6 +16,8 @@ Los únicos huecos permitidos son:
 
 ## Esta entrega
 
-Implementado: páginas públicas, bloqueo de publicación con marcadores, edad de producto 18 en el alta, retirada del banner de cookies, acuse de privacidad, aceptación de términos, puerta de reaceptación y centro de privacidad para esos dos documentos.
+Implementado: páginas públicas, bloqueo de publicación con marcadores, edad de producto 18 en el alta, retirada del banner de cookies, acuse de privacidad, aceptación de términos, puerta de reaceptación, centro de privacidad y consentimiento de salud por finalidad. Sin un aviso de salud activo, esa puerta no cambia el uso actual. Retirar el consentimiento detiene el uso nuevo y deja un trabajo pendiente. `PHASE 1D-C CLEANUP=PLANNED_NOT_IMPLEMENTED`.
 
-No implementado aquí, y sigue dentro de la fase 1: consentimiento de salud, bloqueo funcional de salud, borrado asíncrono y lápida de copias de seguridad. El cierre de cuentas ya existentes con menos de 18 años está diseñado y no está activo.
+No implementado: borrado de datos de salud ya guardados y lápida de copias de seguridad. El cierre de cuentas ya existentes con menos de 18 años está diseñado y no está activo.
+
+`RETIRED_QA_LEGAL_DOCUMENTS`: `qa-1da-p1`, `qa-1da-t1`, `qa-1da-t2`. Están inactivos, sin eventos, y no se muestran porque la API solo devuelve documentos activos.

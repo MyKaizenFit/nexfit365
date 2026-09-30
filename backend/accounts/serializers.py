@@ -117,7 +117,13 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
 class AdminUserSerializer(serializers.ModelSerializer):
     """Serializer para administración de usuarios con información completa"""
-    
+
+    def validate(self, attrs):
+        from legal.health import reject_ungranted_health_writes
+
+        reject_ungranted_health_writes(self.instance, attrs)
+        return attrs
+
     bmi = serializers.FloatField(read_only=True, allow_null=True)
     age = serializers.IntegerField(read_only=True, allow_null=True)
     role_display = serializers.CharField(source='get_role_display', read_only=True)
@@ -459,6 +465,12 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):
             'phone_number',
         ]
 
+    def validate(self, attrs):
+        from legal.health import reject_ungranted_health_writes
+
+        reject_ungranted_health_writes(self.instance, attrs)
+        return attrs
+
 class UserRegistrationSerializer(serializers.ModelSerializer):
     """Serializer para el registro de nuevos usuarios"""
     password = serializers.CharField(write_only=True, min_length=8)
@@ -502,8 +514,11 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         return value
     
     def validate(self, attrs):
+        from legal.health import reject_ungranted_health_writes
+
         if attrs['password'] != attrs['password_confirm']:
             raise serializers.ValidationError("Las contraseñas no coinciden")
+        reject_ungranted_health_writes(None, attrs)
         return attrs
     
     def create(self, validated_data):
@@ -565,13 +580,33 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
 class UserGoalsSerializer(serializers.ModelSerializer):
     """Serializer específico para objetivos de fitness"""
-    
+
+    def validate(self, attrs):
+        from legal.health import reject_ungranted_health_writes
+
+        reject_ungranted_health_writes(self.instance, attrs)
+        return attrs
+
     class Meta:
         model = CustomUser
         fields = ['main_goal', 'activity_level', 'target_weight']
 
 class InitialRegistrationSerializer(serializers.ModelSerializer):
     """Serializer para el formulario de registro inicial completo"""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from legal.health import OPTIONAL_WHEN_ENFORCED, health_consent_enforcement_active
+
+        if health_consent_enforcement_active():
+            for name in OPTIONAL_WHEN_ENFORCED:
+                self.fields[name].required = False
+
+    def validate(self, attrs):
+        from legal.health import reject_ungranted_health_writes
+
+        reject_ungranted_health_writes(self.instance, attrs)
+        return attrs
 
     allergies = FlexibleStringListField(required=False)
     medical_conditions = FlexibleStringListField(required=False)

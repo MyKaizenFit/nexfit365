@@ -80,6 +80,9 @@ class ProgressPhotoViewSet(viewsets.ModelViewSet):
         return context
 
     def create(self, request, *args, **kwargs):
+        from legal.health import require_health_consent
+
+        require_health_consent(request.user, "progress_photos")
         idem_key = get_idempotency_key(request)
         if idem_key:
             cached_id = get_cached_photo_id(request.user.id, idem_key)
@@ -98,6 +101,12 @@ class ProgressPhotoViewSet(viewsets.ModelViewSet):
             set_cached_photo_id(request.user.id, idem_key, serializer.instance.id)
 
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    def update(self, request, *args, **kwargs):
+        from legal.health import require_health_consent
+
+        require_health_consent(request.user, "progress_photos")
+        return super().update(request, *args, **kwargs)
     
     def perform_create(self, serializer):
         """Crear foto con usuario autenticado"""
@@ -209,6 +218,18 @@ class WeightEntryViewSet(viewsets.ModelViewSet):
         context['request'] = self.request
         return context
     
+    def create(self, request, *args, **kwargs):
+        from legal.health import require_health_consent
+
+        require_health_consent(request.user, "health_profile")
+        return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        from legal.health import require_health_consent
+
+        require_health_consent(request.user, "health_profile")
+        return super().update(request, *args, **kwargs)
+
     def perform_create(self, serializer):
         """Crear entrada con usuario autenticado"""
         return serializer.save(user=self.request.user)
@@ -657,6 +678,18 @@ class BodyMeasurementViewSet(viewsets.ModelViewSet):
         context['request'] = self.request
         return context
     
+    def create(self, request, *args, **kwargs):
+        from legal.health import require_health_consent
+
+        require_health_consent(request.user, "progress_photos")
+        return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        from legal.health import require_health_consent
+
+        require_health_consent(request.user, "progress_photos")
+        return super().update(request, *args, **kwargs)
+
     def perform_create(self, serializer):
         """Crear medición con usuario autenticado"""
         serializer.save(user=self.request.user)
@@ -713,11 +746,20 @@ class DailyWellnessViewSet(viewsets.ModelViewSet):
         """Crear registro con usuario autenticado"""
         serializer.save(user=self.request.user)
 
+    def update(self, request, *args, **kwargs):
+        from legal.health import require_health_consent
+
+        require_health_consent(request.user, "wellness")
+        return super().update(request, *args, **kwargs)
+
     def create(self, request, *args, **kwargs):
         """
         Crear o actualizar el registro del dia.
         Evita errores si el frontend intenta crear dos veces el bienestar de la misma fecha.
         """
+        from legal.health import require_health_consent
+
+        require_health_consent(request.user, "wellness")
         entry_date = request.data.get("date") or timezone.localdate().isoformat()
         existing = DailyWellness.objects.filter(user=request.user, date=entry_date).first()
 

@@ -210,3 +210,40 @@ class UserLegalEvent(models.Model):
 
     def delete(self, *args, **kwargs):
         raise ValidationError("Los eventos legales no se eliminan.")
+
+
+class HealthCleanupStatus(models.TextChoices):
+    PENDING = "pending", "Pendiente"
+    PROCESSING = "processing", "En proceso"
+    COMPLETED = "completed", "Completado"
+    FAILED = "failed", "Fallido"
+
+
+class HealthDataDeletionJob(models.Model):
+    """Cola de limpieza. PHASE 1D-C la ejecuta. No guarda datos de salud."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="health_data_deletion_jobs",
+    )
+    purpose = models.CharField(max_length=32, choices=Purpose.choices)
+    status = models.CharField(
+        max_length=16,
+        choices=HealthCleanupStatus.choices,
+        default=HealthCleanupStatus.PENDING,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "purpose"],
+                condition=models.Q(status__in=["pending", "processing"]),
+                name="legal_one_open_health_cleanup_per_purpose",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.user_id} {self.purpose} {self.status}"

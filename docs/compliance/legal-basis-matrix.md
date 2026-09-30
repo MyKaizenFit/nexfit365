@@ -6,5 +6,5 @@
 | Información de privacidad | transparencia, art. 13 | El acuse no es consentimiento |
 | Registro de la versión aceptada o leída | 6.1.f | Evidencia mínima. 17.3.e es excepción a la supresión, no base autónoma |
 | Cumpleaños | 6.1.f | Uso secundario, no comercial, desactivable. No depende del consentimiento de salud |
-| Datos de salud | 9.2.a | Consentimiento explícito separado. PLANNED |
+| Datos de salud | 9.2.a | Consentimiento explícito separado. Mecanismo implementado. Borrado tras retirada PLANNED |
 | Marketing | no iniciado | MARKETING_AT_LAUNCH=OFF |
