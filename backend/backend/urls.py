@@ -23,6 +23,7 @@ urlpatterns = [
     # Rutas de tu API
     path("api/", include("api.urls")),
     path("api/", include("accounts.urls")),
+    path("api/legal/", include("legal.urls")),
     path("api/", include("dashboard.urls")),
     path("api/", include("progress.urls")),
     path("api/", include("workouts.urls")),
