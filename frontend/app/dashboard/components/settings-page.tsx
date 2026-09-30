@@ -17,6 +17,8 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/hooks/use-toast"
 import { helpService, HelpSettings } from "@/lib/help-service"
+import { PrivacyCenter } from "@/components/legal/privacy-center"
+import { appPath } from "@/lib/app-path"
 
 const SettingsPage = () => {
   const router = useRouter()
@@ -157,7 +159,7 @@ const SettingsPage = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 h-auto p-1 bg-muted/50 shadow-sm">
+          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-5 h-auto p-1 bg-muted/50 shadow-sm">
             <TabsTrigger
               value="profile"
               className="flex items-center gap-2 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-teal-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white"
@@ -178,6 +180,13 @@ const SettingsPage = () => {
             >
               <Bell className="h-4 w-4" />
               <span className="hidden sm:inline">Notificaciones</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="privacy"
+              className="flex items-center gap-2 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-indigo-500 data-[state=active]:text-white"
+            >
+              <FileText className="h-4 w-4" />
+              <span className="hidden sm:inline">Privacidad</span>
             </TabsTrigger>
             <TabsTrigger
               value="help"
@@ -203,6 +212,10 @@ const SettingsPage = () => {
           <TabsContent value="notifications" className="space-y-6">
             <PushNotificationsSetup />
             <NotificationsPanel />
+          </TabsContent>
+
+          <TabsContent value="privacy" className="space-y-6">
+            <PrivacyCenter />
           </TabsContent>
 
           {/* Ayuda Tab */}
@@ -355,6 +368,18 @@ const SettingsPage = () => {
                   </div>
                   
                   <div className="mt-4 flex flex-wrap gap-4">
+                    <Button variant="link" className="text-blue-600 hover:text-blue-700 p-0 h-auto" onClick={() => window.open(appPath('/terminos'), '_blank')}>
+                      Términos
+                    </Button>
+                    <Button variant="link" className="text-blue-600 hover:text-blue-700 p-0 h-auto" onClick={() => window.open(appPath('/privacidad'), '_blank')}>
+                      Privacidad
+                    </Button>
+                    <Button variant="link" className="text-blue-600 hover:text-blue-700 p-0 h-auto" onClick={() => window.open(appPath('/cookies'), '_blank')}>
+                      Cookies
+                    </Button>
+                    <Button variant="link" className="text-blue-600 hover:text-blue-700 p-0 h-auto" onClick={() => window.open(appPath('/salud'), '_blank')}>
+                      Salud
+                    </Button>
                     {helpSettings?.terms_url && (
                       <>
                         <Button

@@ -5,3 +5,8 @@ class LegalConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
     name = "legal"
     verbose_name = "Documentos legales"
+
+    def ready(self):
+        from legal.gate import install_legal_gate
+
+        install_legal_gate()

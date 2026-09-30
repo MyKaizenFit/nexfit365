@@ -118,6 +118,51 @@ def record_event(*, user, code, version, locale, purpose, event_type, source, le
     return event, True
 
 
+REGISTRATION_EVENT_TYPES = {
+    "privacy": EventType.ACKNOWLEDGEMENT,
+    "terms": EventType.ACCEPTANCE,
+}
+
+
+def registration_documents_confirmed(payload, locale: str = DEFAULT_LOCALE):
+    """Active required privacy/terms the client confirmed by version.
+
+    The client never supplies the user. Event type is chosen here.
+    """
+    submitted = payload.get("legal") if isinstance(payload, dict) else None
+    if not isinstance(submitted, dict):
+        submitted = {}
+    confirmed = []
+    missing = []
+    for document in get_active_documents(locale):
+        if document.code not in REGISTRATION_EVENT_TYPES or not document.requires_acceptance:
+            continue
+        item = submitted.get(document.code)
+        version = item.get("version") if isinstance(item, dict) else None
+        if version != document.version:
+            missing.append(document.code)
+            continue
+        confirmed.append(document)
+    if missing:
+        raise ValidationError("Debes confirmar los documentos vigentes antes de crear la cuenta.")
+    return confirmed
+
+
+def record_registration_acknowledgements(user, documents):
+    from legal.models import EventSource, Purpose
+
+    for document in documents:
+        record_event(
+            user=user,
+            code=document.code,
+            version=document.version,
+            locale=document.locale,
+            purpose=Purpose.ACCOUNT,
+            event_type=REGISTRATION_EVENT_TYPES[document.code],
+            source=EventSource.REGISTRATION,
+        )
+
+
 def build_status(user, locale: str = DEFAULT_LOCALE):
     accepted = []
     seen = set()

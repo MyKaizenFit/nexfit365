@@ -4,6 +4,8 @@ from django.core.exceptions import ValidationError
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
+from accounts.age import product_age_message
+
 User = get_user_model()
 
 class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -55,12 +57,13 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     )
     email = serializers.EmailField()
     role = serializers.CharField(required=False, default="basic")
+    birth_date = serializers.DateField(required=True)
 
     class Meta:
         model = User
         fields = (
             "email", "password", "password_confirm",
-            "first_name", "last_name", "role"
+            "first_name", "last_name", "role", "birth_date",
         )
         extra_kwargs = {
             "first_name": {"required": False},
@@ -98,6 +101,12 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             )
         return role_map[normalized]
 
+    def validate_birth_date(self, value):
+        message = product_age_message(value)
+        if message:
+            raise serializers.ValidationError(message)
+        return value
+
     def validate(self, attrs):
         """Validar que las contraseñas coincidan"""
         if attrs["password"] != attrs["password_confirm"]:
@@ -118,6 +127,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             password=validated_data["password"],
             first_name=validated_data.get("first_name", ""),
             last_name=validated_data.get("last_name", ""),
+            birth_date=validated_data["birth_date"],
             role="basic",
         )
 
