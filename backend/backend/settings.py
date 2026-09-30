@@ -88,6 +88,7 @@ INSTALLED_APPS = [
     # Propias
     "api",
     "accounts",
+    "legal",
     "nutrition",
     "workouts",
     "progress",
