@@ -7,3 +7,5 @@
 | Base de datos, Redis, Nginx | Infraestructura propia del responsable | No son encargados distintos por el solo hecho de ser la tecnología |
 
 No hay encargado de analítica ni de publicidad.
+
+Las copias de la base siguen el ciclo del alojamiento. Borrar en la base en uso no borra esas copias. PHASE 4 tiene que exportar `PrivacySuppressionRecord` fuera de las copias restaurables y reaplicarlo tras una restauración. Eso no está construido.

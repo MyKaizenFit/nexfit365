@@ -185,9 +185,16 @@ def test_regrant_versioning_and_cleanup_job_does_not_delete_rows():
     assert DailyWellness.objects.filter(user=user).count() == 1
     job = HealthDataDeletionJob.objects.get(user=user, purpose="wellness")
     assert job.status == "pending"
+    blocked = _grant(api, ["wellness"])
+    assert blocked.status_code == 409
+    assert blocked.data["code"] == "health_cleanup_pending"
+    from legal.cleanup import HealthDataCleanupService
+
+    assert HealthDataCleanupService.run_job(job.id) == "completed"
+    assert DailyWellness.objects.filter(user=user).count() == 0
     assert _grant(api, ["wellness"]).status_code == 201
     assert has_active_health_consent(user, "wellness") is True
-    assert HealthDataDeletionJob.objects.get(pk=job.pk).status == "pending"
+    assert HealthDataDeletionJob.objects.get(pk=job.pk).status == "completed"
 
     first.is_active = False
     first.save(update_fields=["is_active"])

@@ -220,7 +220,7 @@ class HealthCleanupStatus(models.TextChoices):
 
 
 class HealthDataDeletionJob(models.Model):
-    """Cola de limpieza. PHASE 1D-C la ejecuta. No guarda datos de salud."""
+    """Cola de limpieza. No guarda datos de salud ni rutas de ficheros."""
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -233,6 +233,19 @@ class HealthDataDeletionJob(models.Model):
         choices=HealthCleanupStatus.choices,
         default=HealthCleanupStatus.PENDING,
     )
+    generation = models.PositiveIntegerField(default=1)
+    withdrawal_event = models.ForeignKey(
+        "legal.UserLegalEvent",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="health_cleanup_jobs",
+    )
+    cutoff_at = models.DateTimeField(null=True, blank=True)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    error_code = models.CharField(max_length=64, blank=True, default="")
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -240,10 +253,42 @@ class HealthDataDeletionJob(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=["user", "purpose"],
-                condition=models.Q(status__in=["pending", "processing"]),
+                condition=models.Q(status__in=["pending", "processing", "failed"]),
                 name="legal_one_open_health_cleanup_per_purpose",
             )
         ]
 
     def __str__(self):
         return f"{self.user_id} {self.purpose} {self.status}"
+
+
+class PrivacySuppressionRecord(models.Model):
+    """Marca de que una finalidad ya se limpió. Sin datos de salud.
+
+    Un backup anterior no contiene esta fila. PHASE 4 tiene que guardar el
+    registro fuera de los backups restaurables y volver a aplicarlo.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="privacy_suppressions",
+    )
+    purpose = models.CharField(max_length=32, choices=Purpose.choices)
+    generation = models.PositiveIntegerField()
+    withdrawal_event = models.ForeignKey(
+        "legal.UserLegalEvent",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="privacy_suppressions",
+    )
+    deleted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "purpose", "generation"],
+                name="legal_one_suppression_per_generation",
+            )
+        ]

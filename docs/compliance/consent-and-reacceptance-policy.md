@@ -14,10 +14,10 @@
 - `consent_granted` y `consent_withdrawn` por finalidad, con el aviso de salud vigente.
 - Sin aviso activo que exija consentimiento, no se bloquea ninguna función.
 - Una versión con `requires_reacceptance` deja esa finalidad en pendiente. El evento anterior no se borra.
-- Retirar detiene el uso nuevo al momento. El borrado de lo ya guardado queda para la fase siguiente.
+- Retirar detiene el uso nuevo al momento, crea el trabajo de borrado de esa finalidad y no permite volver a concederla hasta que ese trabajo termine.
 
 ## Planificado
 
-- Borrado de los datos de salud cuya única base era el consentimiento retirado. `PHASE 1D-C CLEANUP=PLANNED_NOT_IMPLEMENTED`.
+- Protección completa frente a restaurar una copia anterior. `BACKUP_RESURRECTION_FULL_PROTECTION=PLANNED_PHASE_4`. El borrado de la base en uso ya está implementado: `LIVE_DB_HEALTH_CLEANUP=IMPLEMENTED`.
 - Marketing: apagado. No hay casilla ni eventos de marketing. El código de documento puede existir para más adelante.
 - El correo masivo de administración todavía admite texto libre. El freno para que no se use como marketing automático queda pendiente, porque esa vista ya está en otro cambio abierto.
