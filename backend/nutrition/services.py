@@ -256,6 +256,9 @@ class PersonalizedNutritionService:
             previous_calories: Calorías anteriores del plan para transición gradual (opcional)
         """
         logger.info("Calculating daily calories for user_id=%s", self.user.id)
+        from legal.health import require_health_consent
+
+        require_health_consent(self.user, "nutrition")
 
         # Prioridad máxima: override manual del administrador
         admin_override = getattr(self.user, 'admin_calories_override', None)
@@ -329,6 +332,9 @@ class PersonalizedNutritionService:
     
     def calculate_macros(self, daily_calories: int) -> Dict[str, float]:
         """Calcula la distribución de macronutrientes basada en el perfil del usuario"""
+        from legal.health import require_health_consent
+
+        require_health_consent(self.user, "nutrition")
 
         goal_macro_distribution = {
             'lose_weight': (30, 40, 30),

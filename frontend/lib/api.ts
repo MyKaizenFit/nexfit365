@@ -238,6 +238,10 @@ export const handleApiResponse = async <T>(response: Response): Promise<{ data: 
 
       try {
         const errorData = await parseJsonWithUTF8<any>(response)
+        if (response.status === 403 && errorData?.code === 'health_consent_required') {
+          errorMessage = 'Esta función usa datos de salud y está desactivada hasta que lo decidas. Puedes leer el aviso de salud y gestionarlo en Privacidad.'
+          return { data: null, error: errorMessage }
+        }
         const { formatApiError } = await import('./api-errors')
         const fieldError = formatApiError(errorData, '')
         if (fieldError) {

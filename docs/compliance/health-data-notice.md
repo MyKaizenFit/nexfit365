@@ -1,25 +1,23 @@
 # Aviso de datos de salud
 
-Estado del consentimiento separado: `PLANNED`.
+Estado del consentimiento separado: `IMPLEMENTED`.
 
-Cuando se implemente:
+`PHASE 1D-C CLEANUP=PLANNED_NOT_IMPLEMENTED`.
 
-- será un consentimiento explícito, separado del alta;
-- la casilla no vendrá marcada;
-- se podrá retirar;
-- la cuenta podrá existir sin otorgarlo;
-- sin él no se recogerán ni usarán datos cuya única base sea ese consentimiento.
+El consentimiento es explícito, separado del alta, no viene marcado y se puede retirar. La cuenta puede existir sin otorgarlo. La fecha de nacimiento para comprobar la edad no depende de este consentimiento. El aviso de cumpleaños tampoco.
 
-La fecha de nacimiento para comprobar la edad no depende de este consentimiento. El aviso de cumpleaños tampoco.
+No hay un aviso de salud real publicado. Sin un `health_notice` activo, publicado y con `requires_acceptance`, el enforcement no se activa y el uso actual no cambia. Cuando ese aviso exista, quien no haya consentido queda en pendiente: puede entrar, ver documentos, gestionar el consentimiento, exportar y solicitar el borrado de la cuenta, y no puede crear ni usar datos nuevos de las finalidades no consentidas.
 
-Al retirar el consentimiento, el comportamiento previsto es:
+Grupos, todos apagados por defecto:
 
-1. registrar al momento `consent_withdrawn`;
-2. detener al momento la recogida nueva;
-3. detener al momento el uso funcional;
-4. bloquear cálculos y planes nuevos basados en esos datos;
-5. encolar el borrado de lo que solo se sustentaba en ese consentimiento;
-6. conservar lo que tenga otra base válida;
-7. las copias de seguridad siguen su ciclo y no deben reactivar datos ya suprimidos.
+- Perfil de salud y personalización: `health_profile`, `nutrition` y la parte de `workouts` que adapta el entrenamiento a una lesión o condición. Un solo acto afirmativo crea los tres eventos en una transacción.
+- Fotos de progreso: `progress_photos`.
+- Bienestar: `wellness`.
 
-`HEALTH_WITHDRAWAL_CLEANUP_TARGET=24h` es un objetivo operativo interno, no un plazo legal. El artículo 12.3 regula el plazo de respuesta a los derechos, no la conservación. El borrado asíncrono y la lápida de restauración todavía no están construidos.
+La retirada registra `consent_withdrawn` y, desde ese momento, el permiso deja de valer. No borra el historial. Crea un `HealthDataDeletionJob` en `pending` para que la fase siguiente localice a la persona y la finalidad. No guarda una copia de los datos de salud.
+
+Queda fuera de esta puerta: días de entrenamiento, lugar, equipo, series, duración e historial básico de entrenos. También el catálogo genérico que no personaliza con datos de salud.
+
+El personal interno no puede escribir campos de salud ni un override de calorías de otra persona si esa persona no ha consentido. No hay un override para forzar el consentimiento.
+
+`HEALTH_WITHDRAWAL_CLEANUP_TARGET=24h` sigue siendo un objetivo operativo interno, no un plazo legal. El artículo 12.3 regula el plazo de respuesta a los derechos, no la conservación. El borrado y la lápida de restauración no están construidos.

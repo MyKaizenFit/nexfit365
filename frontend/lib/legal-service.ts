@@ -33,18 +33,33 @@ export interface LegalEventRecord {
   created_at: string
 }
 
+export interface HealthPurposeItem {
+  purpose: string
+  state: 'not_required' | 'not_granted' | 'granted' | 'withdrawn' | 'pending_new_version'
+  version: string | null
+  changed_at: string | null
+}
+
+export interface HealthConsentStatus {
+  enforcement_active: boolean
+  document: { code: string; version: string; title: string } | null
+  groups: Array<{ id: string; purposes: string[]; items: HealthPurposeItem[] }>
+}
+
 export interface LegalStatus {
   locale: string
   pending: LegalDocumentSummary[]
   accepted: LegalEventRecord[]
   optional_consents: LegalEventRecord[]
+  health?: HealthConsentStatus
 }
 
 export interface LegalEventInput {
   code: string
   version: string
   locale?: string
-  purpose: string
+  purpose?: string
+  purposes?: string[]
   event_type: LegalEventType
   source: string
   legal_basis?: string

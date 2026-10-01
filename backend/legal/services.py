@@ -3,10 +3,13 @@ from django.core.exceptions import ValidationError
 from legal.models import (
     DEFAULT_LOCALE,
     POSITIVE_EVENT_TYPES,
+    DocumentCode,
     EventType,
     LegalDocument,
     UserLegalEvent,
 )
+
+LEGAL_GATE_CODES = {DocumentCode.PRIVACY, DocumentCode.TERMS}
 
 
 class DocumentNotFound(ValidationError):
@@ -64,6 +67,8 @@ def has_covering_acceptance(user, document) -> bool:
 def get_pending_required_documents(user, locale: str = DEFAULT_LOCALE):
     pending = []
     for document in get_active_documents(locale):
+        if document.code not in LEGAL_GATE_CODES:
+            continue
         if document.requires_acceptance and not has_covering_acceptance(user, document):
             pending.append(document)
     return pending

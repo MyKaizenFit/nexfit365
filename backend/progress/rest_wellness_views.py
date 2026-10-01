@@ -54,6 +54,9 @@ class RestWellnessViewSet(viewsets.GenericViewSet):
         return Response(serializer.data)
 
     def create(self, request):
+        from legal.health import require_health_consent
+
+        require_health_consent(request.user, "wellness")
         serializer = RestWellnessAssessmentCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
