@@ -11,3 +11,14 @@
 - Marketing en el lanzamiento: apagado.
 - DPO: necesidad no demostrada. Sin umbral numérico.
 - La puerta para cuentas ya menores de 18 no se activa hasta revisar el recuento.
+
+## 2026-10-03
+
+- Contabo aloja el servidor. La salida de red está en Alemania. El DPA no está en el repositorio.
+- Cloudflare resuelve el DNS y hace de proxy. El borde de una petición no es el país del origen.
+- El correo sale por `smtp.gmail.com:587` con una cuenta `@gmail.com`. No es Google Workspace. La región de la cuenta no consta.
+- Sentry no tiene DSN. No está activo.
+- No hay analítica ni píxel de marketing en el runtime.
+- YouTube se incrusta con `youtube-nocookie` al abrir un vídeo de YouTube. Drive se carga al abrir un vídeo o una imagen de Drive, y el servidor puede leer Drive al importar el catálogo.
+- El push es Web Push con claves VAPID propias, solo si la persona lo activa. El servicio lo elige el navegador.
+- `EXPECTED_AUTHORIZATION_403_GENERATES_ERROR_REPORT=YES`. Esos informes guardan el correo y el cuerpo de la petición. Las contraseñas y los tokens se tachan. El peso y otros campos de salud del cuerpo no. `FUTURE_ERROR_HARDENING_BACKLOG` para PHASE 16: no tratar el 403 esperado como incidente y no guardar correo ni cuerpo sanitario.
