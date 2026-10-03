@@ -22,4 +22,6 @@ Implementado: páginas públicas, bloqueo de publicación con marcadores, edad d
 
 No implementado: borrado de datos de salud ya guardados y lápida de copias de seguridad. El cierre de cuentas ya existentes con menos de 18 años está diseñado y no está activo.
 
+`ERROR_REPORT_PRIVACY_HARDENING=IMPLEMENTED`. El informe automático no guarda cuerpo, correo ni query. PHASE 16 queda para `RESIDUAL_ERROR_AND_PII_HARDENING`. Los ficheros antiguos no se han purgado.
+
 `RETIRED_QA_LEGAL_DOCUMENTS`: `qa-1da-p1`, `qa-1da-t1`, `qa-1da-t2`. Están inactivos, sin eventos, y no se muestran porque la API solo devuelve documentos activos.

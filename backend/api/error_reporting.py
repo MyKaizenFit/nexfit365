@@ -1,33 +1,59 @@
 import json
 import logging
+import re
 import time
 import traceback
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from django.conf import settings
 from django.core.mail import EmailMessage
 
 logger = logging.getLogger(__name__)
 
-SENSITIVE_KEYS = {
-    "authorization",
-    "cookie",
-    "password",
-    "password1",
-    "password2",
-    "old_password",
-    "new_password",
-    "token",
-    "access",
-    "refresh",
-    "secret",
-    "api_key",
-    "apikey",
-    "csrfmiddlewaretoken",
+# Solo estos 403/409 son flujo de producto. Un 403 con otro código sigue siendo informe.
+EXPECTED_APPLICATION_CODES = {
+    "health_consent_required",
+    "legal_pending",
+    "health_cleanup_pending",
 }
+
+EXPECTED_VALIDATION_TYPES = {"ValidationError", "ParseError"}
+
+HEADER_ALLOWLIST = {"CONTENT_TYPE", "CONTENT_LENGTH"}
+
+# Defensa extra: en estas rutas ni el texto de la excepción se guarda.
+_HEALTH_PREFIXES = (
+    "/api/profile",
+    "/api/me",
+    "/api/auth/me",
+    "/api/nutrition/",
+    "/api/admin/nutrition/",
+    "/api/progress-photos",
+    "/api/weight-history",
+    "/api/measurements",
+    "/api/progress-stats",
+    "/api/daily-wellness",
+    "/api/rest-wellness",
+    "/api/mood",
+    "/api/progress/protected-media",
+    "/api/admin/progress/",
+    "/api/legal/events",
+)
+
+_EMAIL_RE = re.compile(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", re.I)
+_SENSITIVE_ASSIGN_RE = re.compile(
+    r"(?i)([\"']?(?:password|password1|password2|old_password|new_password|"
+    r"token|access|refresh|secret|api_key|apikey|authorization|cookie|"
+    r"set-cookie|csrf|csrfmiddlewaretoken|x-csrftoken|email|birth_date|"
+    r"gender|weight|height|target_weight|allergies|dietary_restrictions|"
+    r"medical_conditions|injuries|injuries_or_medical_issues|"
+    r"additional_info_for_admin|notes|wellness|motivation|sleep|mood)"
+    r"[\"']?\s*[:=]\s*)(?:[\"'][^\"']*[\"']|\S+)"
+)
 
 
 _RECENT_REPORTS: dict[str, float] = {}
@@ -90,6 +116,41 @@ def _is_duplicate_report(key: str) -> bool:
     return False
 
 
+def _application_code(response_data: Any, exc: Exception | None) -> str:
+    if isinstance(response_data, dict):
+        code = response_data.get("code")
+        if code:
+            return str(code)
+        detail = response_data.get("detail")
+        if isinstance(detail, dict) and detail.get("code"):
+            return str(detail["code"])
+    if exc is None:
+        return ""
+    default_code = getattr(exc, "default_code", None)
+    if isinstance(default_code, str) and default_code:
+        return default_code
+    return ""
+
+
+def _is_expected_client_behavior(
+    *,
+    response_status: int | None,
+    response_data: Any,
+    exc: Exception | None,
+) -> bool:
+    """Errores de producto o de cliente. No oculta 500 ni un 403 de otro código."""
+    if response_status in {401, 404}:
+        return True
+    if response_status == 400 and exc is not None and exc.__class__.__name__ in EXPECTED_VALIDATION_TYPES:
+        return True
+    code = _application_code(response_data, exc)
+    if response_status == 403 and code in {"health_consent_required", "legal_pending"}:
+        return True
+    if response_status == 409 and code == "health_cleanup_pending":
+        return True
+    return False
+
+
 def should_capture_error_report(
     *,
     request,
@@ -97,6 +158,13 @@ def should_capture_error_report(
     response_data: Any = None,
     exc: Exception | None = None,
 ) -> bool:
+    if _is_expected_client_behavior(
+        response_status=response_status,
+        response_data=response_data,
+        exc=exc,
+    ):
+        return False
+
     if is_expected_auth_failure(
         response_status=response_status,
         response_data=response_data,
@@ -111,70 +179,37 @@ def should_capture_error_report(
     return True
 
 
-def _safe_value(value: Any, depth: int = 0) -> Any:
-    if depth > 4:
-        return "[truncated-depth]"
-
-    if hasattr(value, "name") and hasattr(value, "size"):
-        return {
-            "file_name": getattr(value, "name", ""),
-            "content_type": getattr(value, "content_type", ""),
-            "size": getattr(value, "size", None),
-        }
-
-    if isinstance(value, dict):
-        return {
-            str(key): "[redacted]" if str(key).lower() in SENSITIVE_KEYS else _safe_value(item, depth + 1)
-            for key, item in value.items()
-        }
-
-    if isinstance(value, (list, tuple)):
-        return [_safe_value(item, depth + 1) for item in list(value)[:50]]
-
-    if isinstance(value, bytes):
-        return f"[{len(value)} bytes]"
-
-    if isinstance(value, (str, int, float, bool)) or value is None:
-        if isinstance(value, str) and len(value) > 2000:
-            return value[:2000] + "...[truncated]"
-        return value
-
-    return str(value)
+def _redact_text(value: str) -> str:
+    text = _EMAIL_RE.sub("[redacted]", value or "")
+    return _SENSITIVE_ASSIGN_RE.sub(r"\1[redacted]", text)
 
 
-def _request_data(request) -> Any:
-    try:
-        data = getattr(request, "data", None)
-        if data is not None:
-            if hasattr(data, "dict"):
-                data = data.dict()
-            return _safe_value(data)
-    except Exception as exc:
-        return f"[could not read request.data: {exc}]"
-
-    try:
-        body = getattr(request, "body", b"")
-        if not body:
-            return None
-        body_text = body[:4000].decode("utf-8", errors="replace")
-        content_type = (getattr(request, "META", {}) or {}).get("CONTENT_TYPE", "")
-        if "application/json" in content_type:
-            try:
-                return _safe_value(json.loads(body_text))
-            except json.JSONDecodeError:
-                pass
-        return _safe_value(body_text)
-    except Exception as exc:
-        return f"[could not read request.body: {exc}]"
+def _path_without_query(value: str) -> str:
+    if not value:
+        return ""
+    raw = str(value).strip()
+    if "://" in raw:
+        split = urlsplit(raw)
+        return split.path or ""
+    return raw.split("?", 1)[0].split("#", 1)[0]
 
 
-def _request_headers(request) -> dict[str, Any]:
-    headers = {}
+def _is_health_endpoint(path: str) -> bool:
+    normalized = _path_without_query(path).rstrip("/") or "/"
+    for prefix in _HEALTH_PREFIXES:
+        base = prefix.rstrip("/")
+        if normalized == base or normalized.startswith(base + "/"):
+            return True
+    return False
+
+
+def _allowlisted_headers(request) -> dict[str, str]:
     meta = getattr(request, "META", {}) or {}
-    for key, value in meta.items():
-        if key.startswith("HTTP_") or key in {"CONTENT_TYPE", "CONTENT_LENGTH", "REMOTE_ADDR"}:
-            name = key.removeprefix("HTTP_").replace("_", "-").title()
-            headers[name] = "[redacted]" if name.lower() in SENSITIVE_KEYS else _safe_value(value)
+    headers = {}
+    for key in HEADER_ALLOWLIST:
+        value = meta.get(key)
+        if value:
+            headers[key.lower().replace("_", "-")] = str(value)[:120]
     return headers
 
 
@@ -185,7 +220,6 @@ def _user_info(request) -> dict[str, Any]:
     return {
         "authenticated": True,
         "id": getattr(user, "id", None),
-        "email": getattr(user, "email", ""),
         "role": getattr(user, "role", ""),
         "is_staff": getattr(user, "is_staff", False),
         "is_superuser": getattr(user, "is_superuser", False),
@@ -203,12 +237,10 @@ def _view_info(context: dict[str, Any] | None) -> dict[str, Any]:
     }
 
 
-def _client_info(headers: dict[str, Any]) -> dict[str, Any]:
+def _client_info(request) -> dict[str, Any]:
+    meta = getattr(request, "META", {}) or {}
     return {
-        "path": headers.get("X-Client-Path", ""),
-        "url": headers.get("X-Client-Url", ""),
-        "user_agent": headers.get("User-Agent", ""),
-        "referer": headers.get("Referer", ""),
+        "path": _path_without_query(meta.get("HTTP_X_CLIENT_PATH", "")),
     }
 
 
@@ -237,29 +269,33 @@ def capture_error_report(
 ) -> dict[str, Any]:
     now = datetime.now(timezone.utc)
     report_id = uuid.uuid4().hex
-    exc_text = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__)) if exc else ""
-    request_path = getattr(request, "get_full_path", lambda: getattr(request, "path", ""))()
-    headers = _request_headers(request)
+    path = _path_without_query(getattr(request, "path", "") or "")
+    health_endpoint = _is_health_endpoint(path)
+    error_code = _application_code(response_data, exc)
+    if exc and not health_endpoint:
+        error_text = _redact_text(str(exc))[:500]
+        exc_text = _redact_text("".join(traceback.format_exception(type(exc), exc, exc.__traceback__)))
+    else:
+        error_text = exc.__class__.__name__ if exc else error_code
+        exc_text = ""
 
     report = {
         "id": report_id,
         "timestamp_utc": now.isoformat(),
         "source": source,
         "status_code": response_status,
+        "error_code": error_code,
         "error_type": exc.__class__.__name__ if exc else None,
-        "error": str(exc) if exc else _safe_value(response_data),
+        "error": error_text,
         "traceback": exc_text,
         "user": _user_info(request),
         "request": {
             "method": getattr(request, "method", ""),
-            "path": getattr(request, "path", ""),
-            "full_path": request_path,
-            "headers": headers,
-            "data": _request_data(request),
+            "path": path,
+            "headers": _allowlisted_headers(request),
         },
-        "client": _client_info(headers),
+        "client": _client_info(request),
         "view": _view_info(context),
-        "response": _safe_value(response_data),
     }
 
     log_path = _error_log_dir() / f"{now.strftime('%Y%m%d-%H%M%S')}-{report_id}.json"
@@ -285,15 +321,13 @@ def _send_error_email(report: dict[str, Any]) -> None:
         f"ID: {report['id']}\n"
         f"Fecha UTC: {report['timestamp_utc']}\n"
         f"Estado: {report.get('status_code')}\n"
-        f"Usuario: {user.get('email') or 'anonimo'} (id={user.get('id')})\n"
+        f"Codigo: {report.get('error_code') or 'sin codigo'}\n"
+        f"Usuario id: {user.get('id') if user.get('authenticated') else 'anonimo'}\n"
         f"Accion: {report.get('view', {}).get('view')}.{report.get('view', {}).get('action')}\n"
         f"Pantalla frontend: {report.get('client', {}).get('path') or 'no disponible'}\n"
-        f"URL frontend: {report.get('client', {}).get('url') or 'no disponible'}\n"
-        f"Ruta: {report['request'].get('method')} {report['request'].get('full_path')}\n"
-        f"Error: {report.get('error')}\n"
-        f"Log servidor: {report.get('log_path')}\n\n"
-        "Detalle completo:\n"
-        f"{json.dumps(report, ensure_ascii=False, indent=2, default=str)[:20000]}"
+        f"Ruta: {report['request'].get('method')} {report['request'].get('path')}\n"
+        f"Error: {report.get('error_type') or report.get('error')}\n"
+        f"Log servidor: {report.get('log_path')}\n"
     )
 
     try:

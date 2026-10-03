@@ -21,4 +21,7 @@
 - No hay analítica ni píxel de marketing en el runtime.
 - YouTube se incrusta con `youtube-nocookie` al abrir un vídeo de YouTube. Drive se carga al abrir un vídeo o una imagen de Drive, y el servidor puede leer Drive al importar el catálogo.
 - El push es Web Push con claves VAPID propias, solo si la persona lo activa. El servicio lo elige el navegador.
-- `EXPECTED_AUTHORIZATION_403_GENERATES_ERROR_REPORT=YES`. Esos informes guardan el correo y el cuerpo de la petición. Las contraseñas y los tokens se tachan. El peso y otros campos de salud del cuerpo no. `FUTURE_ERROR_HARDENING_BACKLOG` para PHASE 16: no tratar el 403 esperado como incidente y no guardar correo ni cuerpo sanitario.
+- `ERROR_REPORT_PRIVACY_HARDENING=IMPLEMENTED`. Un informe automático ya no guarda el cuerpo de la petición, el correo, la query ni cabeceras de sesión. Solo guarda método, ruta sin parámetros, estado, código de aplicación, identificador técnico y tipo de error.
+- No se informa un 401, un 404, una validación 400, ni un 403 `health_consent_required` o `legal_pending`, ni un 409 `health_cleanup_pending`. Un 403 con otro código y un 500 sí se informan.
+- En rutas de perfil, nutrición, progreso, bienestar y consentimiento de salud, el 500 no guarda el texto de la excepción.
+- PHASE 16 queda solo para `RESIDUAL_ERROR_AND_PII_HARDENING`. Este informe ya no forma parte de ese pendiente. Esta entrega no audita todos los logs del proyecto. Sentry sigue apagado; si se enciende, su contexto de usuario queda fuera de este cambio.
