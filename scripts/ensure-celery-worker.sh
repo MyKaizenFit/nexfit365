@@ -56,6 +56,11 @@ if ! flock -n 9; then
   exit 0
 fi
 
+purge="/srv/mykaizenfit/pro/scripts/cleanup-error-reports.sh"
+if [ -x "$purge" ]; then
+  "$purge" >> /srv/mykaizenfit/pro/backups/cron_error_reports.log 2>&1 || log "AVISO: purga de informes de error no completada"
+fi
+
 if is_worker_running; then
   log "OK: $SERVICE_NAME ya está corriendo"
   exit 0

@@ -34,7 +34,12 @@ def custom_exception_handler(exc, context):
     
     if response is not None:
         # Log de la excepción
-        logger.error(f"API Exception: {exc} in {context['view'].__class__.__name__}")
+        logger.error(
+            "API Exception: %s in %s status=%s",
+            exc.__class__.__name__,
+            context["view"].__class__.__name__,
+            response.status_code,
+        )
         
         # Asegurar que la respuesta siempre tenga el formato correcto
         if isinstance(response.data, dict):

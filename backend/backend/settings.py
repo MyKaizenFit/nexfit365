@@ -417,6 +417,7 @@ ERROR_REPORT_EMAILS = [
     if email.strip()
 ]
 ERROR_REPORT_LOG_DIR = os.getenv("ERROR_REPORT_LOG_DIR", str(BASE_DIR / "logs" / "error-reports"))
+ERROR_REPORT_RETENTION_DAYS = int(os.getenv("ERROR_REPORT_RETENTION_DAYS", "90"))
 
 # ---------------------------------
 # Celery — cola de tareas asíncronas

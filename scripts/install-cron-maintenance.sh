@@ -27,7 +27,7 @@ echo -e "${GREEN}Instalando crons de mantenimiento NexFit PRO...${NC}"
 install -m 0644 "$CRON_SRC" "$CRON_DST"
 echo "  ✓ $CRON_DST"
 
-for script in db-integrity-check.sh optimize-database.sh reindex-jwt-blacklist.sh health-check.sh alert-logs.sh verify-backup.sh check-services.sh ensure-celery-worker.sh auto-backup.sh restore.sh; do
+for script in db-integrity-check.sh optimize-database.sh reindex-jwt-blacklist.sh health-check.sh alert-logs.sh verify-backup.sh check-services.sh ensure-celery-worker.sh auto-backup.sh restore.sh cleanup-error-reports.sh; do
   chmod +x "$ROOT/scripts/$script"
 done
 echo "  ✓ Permisos de scripts"

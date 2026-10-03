@@ -25,6 +25,8 @@ CACHES = {
 
 # Configuración de email para pruebas
 EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'
+ERROR_REPORT_LOG_DIR = '/tmp/nexfit-test-error-reports'
+ERROR_REPORT_EMAILS = []
 
 # Configuración de archivos estáticos para pruebas
 STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
