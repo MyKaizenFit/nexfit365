@@ -2,8 +2,8 @@
 
 El enforcement solo existe cuando hay un health_notice activo, publicado
 y con requires_acceptance. Sin ese documento, el comportamiento actual
-no cambia. Retirar el consentimiento no borra datos: deja un trabajo
-pending para PHASE 1D-C.
+no cambia. Retirar el consentimiento deja de valer al momento y encola
+el borrado de esa finalidad.
 """
 
 from django.core.exceptions import ValidationError
@@ -68,6 +68,15 @@ class HealthConsentRequired(APIException):
         "code": "health_consent_required",
     }
     default_code = "health_consent_required"
+
+
+class HealthCleanupPending(APIException):
+    status_code = 409
+    default_detail = {
+        "detail": "El borrado de esta finalidad todavía no ha terminado.",
+        "code": "health_cleanup_pending",
+    }
+    default_code = "health_cleanup_pending"
 
 
 def health_consent_enforcement_active(locale: str = DEFAULT_LOCALE) -> bool:
@@ -186,19 +195,35 @@ def reject_ungranted_health_writes(user, data, locale: str = DEFAULT_LOCALE):
         require_health_consent(user, Purpose.NUTRITION, locale)
 
 
-def queue_health_cleanup(user, purpose: str):
+def queue_health_cleanup(user, purpose: str, withdrawal_event):
+    from legal.cleanup import OPEN_STATUSES
+
     open_job = HealthDataDeletionJob.objects.filter(
         user=user,
         purpose=purpose,
-        status__in=(HealthCleanupStatus.PENDING, HealthCleanupStatus.PROCESSING),
+        status__in=OPEN_STATUSES,
     ).first()
     if open_job:
         return open_job
-    return HealthDataDeletionJob.objects.create(
+    previous = (
+        HealthDataDeletionJob.objects.filter(user=user, purpose=purpose)
+        .order_by("-generation")
+        .values_list("generation", flat=True)
+        .first()
+    )
+    job = HealthDataDeletionJob.objects.create(
         user=user,
         purpose=purpose,
         status=HealthCleanupStatus.PENDING,
+        generation=(previous or 0) + 1,
+        withdrawal_event=withdrawal_event,
+        cutoff_at=withdrawal_event.created_at,
     )
+    from legal.tasks import cleanup_health_data_task
+
+    job_id = job.id
+    transaction.on_commit(lambda: cleanup_health_data_task.delay(job_id))
+    return job
 
 
 @transaction.atomic
@@ -224,6 +249,10 @@ def record_health_consents(
         if purpose not in HEALTH_PURPOSES:
             raise ValidationError("Finalidad no cubierta por el aviso de salud.")
         if event_type == EventType.CONSENT_GRANTED:
+            from legal.cleanup import cleanup_blocks_grant
+
+            if cleanup_blocks_grant(user, purpose):
+                raise HealthCleanupPending()
             if has_active_health_consent(user, purpose, locale):
                 latest = _latest_purpose_event(user, purpose, locale)
                 results.append((latest, False))
@@ -254,6 +283,6 @@ def record_health_consents(
             legal_basis=legal_basis or LegalBasis.SPECIAL_CATEGORY_EXPLICIT_CONSENT,
             source=source,
         )
-        queue_health_cleanup(user, purpose)
+        queue_health_cleanup(user, purpose, event)
         results.append((event, True))
     return results

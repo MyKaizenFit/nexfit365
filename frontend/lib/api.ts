@@ -242,6 +242,10 @@ export const handleApiResponse = async <T>(response: Response): Promise<{ data: 
           errorMessage = 'Esta función usa datos de salud y está desactivada hasta que lo decidas. Puedes leer el aviso de salud y gestionarlo en Privacidad.'
           return { data: null, error: errorMessage }
         }
+        if (response.status === 409 && errorData?.code === 'health_cleanup_pending') {
+          errorMessage = 'Estamos terminando de retirar ese uso. Podrás volver a concederlo cuando el borrado haya acabado.'
+          return { data: null, error: errorMessage }
+        }
         const { formatApiError } = await import('./api-errors')
         const fieldError = formatApiError(errorData, '')
         if (fieldError) {

@@ -1,6 +1,7 @@
 from django.contrib import admin
 
-from legal.models import LegalDocument, UserLegalEvent
+from legal.models import HealthDataDeletionJob, LegalDocument, PrivacySuppressionRecord, UserLegalEvent
+from legal.tasks import cleanup_health_data_task
 
 
 @admin.register(LegalDocument)
@@ -57,6 +58,54 @@ class UserLegalEventAdmin(admin.ModelAdmin):
         "source",
         "created_at",
     )
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.action(description="Reintentar trabajos fallidos")
+def retry_failed_health_cleanup(modeladmin, request, queryset):
+    for job_id in queryset.filter(status="failed").values_list("id", flat=True):
+        cleanup_health_data_task.delay(job_id)
+
+
+@admin.register(HealthDataDeletionJob)
+class HealthDataDeletionJobAdmin(admin.ModelAdmin):
+    list_display = ("id", "user_id", "purpose", "status", "generation", "attempts", "created_at", "started_at", "completed_at")
+    list_filter = ("status", "purpose")
+    readonly_fields = (
+        "user",
+        "purpose",
+        "status",
+        "generation",
+        "withdrawal_event",
+        "cutoff_at",
+        "attempts",
+        "error_code",
+        "started_at",
+        "completed_at",
+        "created_at",
+        "updated_at",
+    )
+    actions = (retry_failed_health_cleanup,)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(PrivacySuppressionRecord)
+class PrivacySuppressionRecordAdmin(admin.ModelAdmin):
+    list_display = ("id", "user_id", "purpose", "generation", "deleted_at")
+    readonly_fields = ("user", "purpose", "generation", "withdrawal_event", "deleted_at")
 
     def has_add_permission(self, request):
         return False

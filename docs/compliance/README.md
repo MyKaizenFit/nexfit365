@@ -16,7 +16,7 @@ Los únicos huecos permitidos son:
 
 ## Esta entrega
 
-Implementado: páginas públicas, bloqueo de publicación con marcadores, edad de producto 18 en el alta, retirada del banner de cookies, acuse de privacidad, aceptación de términos, puerta de reaceptación, centro de privacidad y consentimiento de salud por finalidad. Sin un aviso de salud activo, esa puerta no cambia el uso actual. Retirar el consentimiento detiene el uso nuevo y deja un trabajo pendiente. `PHASE 1D-C CLEANUP=PLANNED_NOT_IMPLEMENTED`.
+Implementado: páginas públicas, bloqueo de publicación con marcadores, edad de producto 18 en el alta, retirada del banner de cookies, acuse de privacidad, aceptación de términos, puerta de reaceptación, centro de privacidad, consentimiento de salud por finalidad y borrado en la base en uso de la finalidad retirada. `LIVE_DB_HEALTH_CLEANUP=IMPLEMENTED`. `BACKUP_RESURRECTION_FULL_PROTECTION=PLANNED_PHASE_4`. Sin un aviso de salud activo, esa puerta no cambia el uso actual. Las copias antiguas no se han limpiado.
 
 No implementado: borrado de datos de salud ya guardados y lápida de copias de seguridad. El cierre de cuentas ya existentes con menos de 18 años está diseñado y no está activo.
 
