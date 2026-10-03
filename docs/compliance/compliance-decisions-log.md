@@ -25,3 +25,5 @@
 - No se informa un 401, un 404, una validación 400, ni un 403 `health_consent_required` o `legal_pending`, ni un 409 `health_cleanup_pending`. Un 403 con otro código y un 500 sí se informan.
 - En rutas de perfil, nutrición, progreso, bienestar y consentimiento de salud, el 500 no guarda el texto de la excepción.
 - PHASE 16 queda solo para `RESIDUAL_ERROR_AND_PII_HARDENING`. Este informe ya no forma parte de ese pendiente. Esta entrega no audita todos los logs del proyecto. Sentry sigue apagado; si se enciende, su contexto de usuario queda fuera de este cambio.
+- `ERROR_REPORT_RETENTION_DAYS=90` es `INTERNAL_RETENTION_POLICY`. No es un plazo exigido por el RGPD. El comando `cleanup_error_reports` borra el formato antiguo entero y los informes saneados de más de 90 días. No se guarda copia del contenido.
+- `HISTORICAL_REPORTS_MAY_EXIST_IN_OLD_BACKUPS=YES`. PHASE 4 tiene que incluir esos ficheros en la expiración de copias. No se limpian las copias antiguas en esta fase.

@@ -1,10 +1,11 @@
+import hashlib
 import json
 import logging
 import re
 import time
 import traceback
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
@@ -13,6 +14,10 @@ from django.conf import settings
 from django.core.mail import EmailMessage
 
 logger = logging.getLogger(__name__)
+
+REPORT_FORMAT_VERSION = 2
+_REPORT_NAME = re.compile(r"^\d{8}-\d{6}-[0-9a-f]{32}\.json$")
+_ALLOWED_HEADER_NAMES = {"content-type", "content-length"}
 
 # Solo estos 403/409 son flujo de producto. Un 403 con otro código sigue siendo informe.
 EXPECTED_APPLICATION_CODES = {
@@ -281,6 +286,7 @@ def capture_error_report(
 
     report = {
         "id": report_id,
+        "format_version": REPORT_FORMAT_VERSION,
         "timestamp_utc": now.isoformat(),
         "source": source,
         "status_code": response_status,
@@ -340,3 +346,106 @@ def _send_error_email(report: dict[str, Any]) -> None:
         email.send(fail_silently=False)
     except Exception:
         logger.exception("Could not send error report email %s", report.get("id"))
+
+
+def _is_current_sanitized(payload: Any) -> bool:
+    if not isinstance(payload, dict) or payload.get("format_version") != REPORT_FORMAT_VERSION:
+        return False
+    user = payload.get("user") or {}
+    if isinstance(user, dict) and user.get("email"):
+        return False
+    request = payload.get("request")
+    if not isinstance(request, dict):
+        return False
+    if "data" in request or "full_path" in request:
+        return False
+    path = str(request.get("path") or "")
+    if "?" in path or "://" in path:
+        return False
+    headers = request.get("headers") or {}
+    if not isinstance(headers, dict):
+        return False
+    return all(str(key).lower() in _ALLOWED_HEADER_NAMES for key in headers)
+
+
+def _report_timestamp(payload: dict[str, Any], path: Path) -> datetime:
+    raw = payload.get("timestamp_utc")
+    if isinstance(raw, str):
+        try:
+            parsed = datetime.fromisoformat(raw)
+        except ValueError:
+            parsed = None
+        if parsed is not None:
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=timezone.utc)
+            return parsed
+    return datetime.fromtimestamp(path.stat().st_mtime, timezone.utc)
+
+
+def cleanup_error_reports(*, execute: bool, now: datetime | None = None) -> dict[str, Any]:
+    """Borra formato antiguo y reports saneados fuera de retención. No lee rutas ajenas."""
+    moment = now or datetime.now(timezone.utc)
+    retention_days = int(getattr(settings, "ERROR_REPORT_RETENTION_DAYS", 90))
+    cutoff = moment - timedelta(days=retention_days)
+    configured = getattr(settings, "ERROR_REPORT_LOG_DIR", None)
+    root = Path(configured) if configured else Path(settings.BASE_DIR) / "logs" / "error-reports"
+    counts = {
+        "old_format": 0,
+        "expired": 0,
+        "kept": 0,
+        "rejected": 0,
+        "deleted": 0,
+        "missing": 0,
+        "errors": 0,
+        "id_hash": "",
+    }
+    if root.is_symlink() or not root.is_dir():
+        counts["errors"] = 1
+        return counts
+
+    root = root.resolve()
+    ids: list[str] = []
+    for entry in root.iterdir():
+        if entry.is_symlink() or not entry.is_file() or not _REPORT_NAME.match(entry.name):
+            if entry.is_symlink() or (entry.exists() and not entry.is_file()):
+                counts["rejected"] += 1
+            continue
+        try:
+            resolved = entry.resolve(strict=True)
+        except FileNotFoundError:
+            counts["missing"] += 1
+            continue
+        if resolved.parent != root:
+            counts["rejected"] += 1
+            continue
+        try:
+            payload = json.loads(resolved.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            counts["missing"] += 1
+            continue
+        except (OSError, UnicodeError, json.JSONDecodeError):
+            payload = None
+        if isinstance(payload, dict) and _is_current_sanitized(payload):
+            if _report_timestamp(payload, resolved) >= cutoff:
+                counts["kept"] += 1
+                continue
+            kind = "expired"
+        else:
+            kind = "old_format"
+        counts[kind] += 1
+        report_id = ""
+        if isinstance(payload, dict) and isinstance(payload.get("id"), str):
+            report_id = payload["id"]
+        ids.append(report_id or entry.stem)
+        if not execute:
+            continue
+        try:
+            resolved.unlink()
+            counts["deleted"] += 1
+        except FileNotFoundError:
+            counts["missing"] += 1
+        except OSError:
+            counts["errors"] += 1
+    if ids:
+        counts["id_hash"] = hashlib.sha256("\n".join(sorted(ids)).encode("utf-8")).hexdigest()
+    return counts
