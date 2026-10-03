@@ -10,7 +10,9 @@ Estado de cada apartado:
 
 Los únicos huecos permitidos son:
 
-`[RESPONSABLE_LEGAL]` `[NIF_CIF]` `[DOMICILIO]` `[EMAIL_PRIVACIDAD]` `[DATOS_REGISTRALES]` `[HOSTING_PROVIDER]` `[HOSTING_COUNTRY]` `[HOSTING_DPA]` `[SMTP_ACCOUNT_TYPE]` `[SMTP_REGION]`
+Siguen sin constar: `[RESPONSABLE_LEGAL]` `[NIF_CIF]` `[DOMICILIO]` `[EMAIL_PRIVACIDAD]` `[DATOS_REGISTRALES]` `[HOSTING_DPA]` `[SMTP_REGION]`.
+
+Verificado: alojamiento Contabo en Alemania, proxy Cloudflare, correo Gmail `@gmail.com` (no Workspace), Sentry apagado, sin analítica ni marketing. Los textos candidatos están en `final-texts.md` y no están publicados.
 
 `PRODUCTION_LEGAL_DOCUMENTS_CREATED=NO`. Ninguna migración carga estos textos en `LegalDocument`.
 

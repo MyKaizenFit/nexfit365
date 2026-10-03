@@ -25,12 +25,12 @@ No se afirma que la fecha sirva solo para la edad.
 
 ## Derechos
 
-Acceso, rectificación, supresión, limitación, oposición, portabilidad y retirada del consentimiento cuando sea la base. El plazo de respuesta es el del artículo 12.3. Ese plazo no es un periodo de conservación.
+Acceso y rectificación del perfil: `IMPLEMENTED`. Exportación: `PARTIAL` (perfil, entrenos, comidas, peso, medidas y avisos; no todo el producto). Solicitud de eliminación de cuenta: `IMPLEMENTED` como solicitud; el borrado de la cuenta es `PLANNED` (PHASE 3). Retirada del consentimiento de salud: `IMPLEMENTED` cuando hay aviso publicado; el uso cesa al momento y el borrado se encola. Oposición al cumpleaños: `IMPLEMENTED` con el interruptor, apagado por defecto. Limitación: `PLANNED`. El plazo de respuesta es el del artículo 12.3. Ese plazo no es un periodo de conservación.
 
 La exportación y la solicitud de eliminación siguen disponibles aunque haya un documento pendiente.
 
 ## Encargados
 
-Alojamiento: [HOSTING_PROVIDER], país [HOSTING_COUNTRY], contrato [HOSTING_DPA]. Correo: [SMTP_ACCOUNT_TYPE], región [SMTP_REGION]. Postgres, Redis y Nginx son tecnologías del responsable, no encargados por sí mismos.
+Alojamiento: Contabo, Alemania. Contrato: [HOSTING_DPA]. Correo: Gmail (`smtp.gmail.com`, buzón `@gmail.com`, no Workspace de dominio propio), región [SMTP_REGION]. Cloudflare hace de proxy. Postgres, Redis y Nginx están en el mismo servidor.
 
 No hay analítica ni publicidad de terceros en el runtime actual.
