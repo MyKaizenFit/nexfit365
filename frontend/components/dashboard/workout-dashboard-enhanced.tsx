@@ -333,9 +333,16 @@ export function WorkoutDashboardEnhanced() {
 
   // Usar activeProgram como userPlan
   const userPlan = activeProgram
-  const currentProgramWeek = userPlan ? getProgramWeekForDate(userPlan) : 1
+  const backendCurrentWeek = Number(userPlan?.current_week)
+  const currentProgramWeek = userPlan
+    ? Number.isFinite(backendCurrentWeek) && backendCurrentWeek >= 1
+      ? backendCurrentWeek
+      : getProgramWeekForDate(userPlan)
+    : 1
   const totalProgramWeeks = userPlan ? planDurationWeeksFromPlan(userPlan) : 1
-  const programLifecycleStatus = userPlan ? getProgramLifecycleStatus(userPlan) : "not_started"
+  const programLifecycleStatus = userPlan?.program_status ?? (
+    userPlan ? getProgramLifecycleStatus(userPlan) : "not_started"
+  )
   const isProgramActiveToday = programLifecycleStatus === "active"
   const isProgramFinished = programLifecycleStatus === "completed"
 
@@ -1239,7 +1246,7 @@ export function WorkoutDashboardEnhanced() {
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold text-purple-900">
-                      Semana {Math.max(1, currentProgramWeek)} de {totalProgramWeeks}
+                      Semana {currentProgramWeek} de {totalProgramWeeks}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
                       {userPlan.start_date
@@ -1429,8 +1436,19 @@ export function WorkoutDashboardEnhanced() {
               </div>
             )
           })() : (
-            // Si no hay training_days configurado, mostrar todos los días del plan
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <>
+              <Card className="border-dashed border-amber-300 bg-amber-50/50">
+                <CardContent className="p-8 text-center">
+                  <Calendar className="h-10 w-10 mx-auto mb-3 text-amber-600" />
+                  <CardTitle className="text-lg text-amber-900">
+                    Esta semana no contiene entrenamientos
+                  </CardTitle>
+                  <CardDescription className="mt-2 text-amber-800">
+                    El plan sigue activo, pero no hay rutinas cargadas para la semana {currentProgramWeek}.
+                  </CardDescription>
+                </CardContent>
+              </Card>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {userPlan?.days?.map((day: any, index: number) => {
                 const isToday = day.day_number === (new Date().getDay() === 0 ? 7 : new Date().getDay())
                 const dayTheme = getWorkoutFocusTheme(day)
@@ -1575,7 +1593,8 @@ export function WorkoutDashboardEnhanced() {
                   </Card>
                 )
               })}
-            </div>
+              </div>
+            </>
           )}
         </TabsContent>
 

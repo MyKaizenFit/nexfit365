@@ -140,6 +140,30 @@ describe('multi-week plan resolution', () => {
     expect(getProgramWeekForDate(multiWeekPlan, new Date('2026-06-23'))).toBe(2)
   })
 
+  it('advances every seven elapsed days for plans that start outside Monday', () => {
+    const fridayPlan: WorkoutPlanLike = {
+      start_date: '2026-08-14',
+      end_date: '2026-11-06',
+      duration_weeks: 12,
+      days: [{ day_number: 50, day_of_week: 'monday', is_rest_day: false }],
+    }
+    expect(getProgramWeekForDate(fridayPlan, new Date('2026-08-14T12:00:00'))).toBe(1)
+    expect(getProgramWeekForDate(fridayPlan, new Date('2026-08-15T12:00:00'))).toBe(1)
+    expect(getProgramWeekForDate(fridayPlan, new Date('2026-08-21T12:00:00'))).toBe(2)
+    expect(getProgramWeekForDate(fridayPlan, new Date('2026-10-06T12:00:00'))).toBe(8)
+    expect(getProgramLifecycleStatus(fridayPlan, new Date('2026-10-06T12:00:00'))).toBe('active')
+  })
+
+  it('keeps a plan starting tomorrow as not started even in the same calendar week', () => {
+    const futurePlan: WorkoutPlanLike = {
+      start_date: '2026-10-08',
+      duration_weeks: 4,
+      days: [{ day_number: 1, day_of_week: 'thursday', is_rest_day: false }],
+    }
+    expect(getProgramWeekForDate(futurePlan, new Date('2026-10-07T12:00:00'))).toBe(0)
+    expect(getProgramLifecycleStatus(futurePlan, new Date('2026-10-07T12:00:00'))).toBe('not_started')
+  })
+
   it('resolves week 1 Monday on activation week', () => {
     const day = getPlanDayForWeekday(multiWeekPlan, 1, new Date('2026-06-16'))
     expect(day?.name).toBe('W1 Mon')
@@ -270,7 +294,7 @@ describe('multi-week plan resolution', () => {
       ],
     }
 
-    expect(getPlanDayForWeekday(partiallyScheduledPlan, 2, new Date('2026-06-30'))?.name).toBe('W1 Tue')
+    expect(getPlanDayForWeekday(partiallyScheduledPlan, 2, new Date('2026-06-30'))?.name).toBe('W5 Tue')
     expect(getPlanTrainingWeekdays(partiallyScheduledPlan, new Date('2026-06-16'))).toEqual([1, 2, 4, 5])
     expect(getPlanTrainingWeekdays(partiallyScheduledPlan, new Date('2026-06-30'))).toEqual([1, 2, 4, 5])
   })
