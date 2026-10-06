@@ -27,6 +27,8 @@ export type WorkoutPlanLike = {
   start_date?: string | null
   duration_weeks?: number
   end_date?: string | null
+  current_week?: number
+  program_status?: ProgramLifecycleStatus
 }
 
 export function parseDateOnly(value: string): Date {
@@ -102,12 +104,12 @@ export function getProgramWeekForAnchor(
   referenceDate: Date = new Date(),
   durationWeeks?: number,
 ): number {
-  const startMonday = getMondayOfWeek(
-    typeof anchorDate === "string" ? parseDateOnly(anchorDate) : anchorDate,
-  )
-  const refMonday = getMondayOfWeek(referenceDate)
+  const start = typeof anchorDate === "string" ? parseDateOnly(anchorDate) : new Date(anchorDate)
+  start.setHours(0, 0, 0, 0)
+  const reference = new Date(referenceDate)
+  reference.setHours(0, 0, 0, 0)
   const msPerWeek = 7 * 24 * 60 * 60 * 1000
-  const weeksElapsed = Math.floor((refMonday.getTime() - startMonday.getTime()) / msPerWeek)
+  const weeksElapsed = Math.floor((reference.getTime() - start.getTime()) / msPerWeek)
 
   if (weeksElapsed < 0) return 0
 
@@ -146,6 +148,8 @@ export function getDateForWeekdayInProgramWeek(
   const week = Math.max(1, programWeek ?? getProgramWeekForDate(plan, referenceDate))
 
   if (plan?.start_date && isMultiWeekPlan(plan)) {
+    // La parrilla visible sigue siendo lunes-domingo. Solo la progresión del
+    // número de semana usa bloques de siete días desde start_date.
     const startMonday = getMondayOfWeek(parseDateOnly(plan.start_date))
     const date = new Date(startMonday)
     date.setDate(startMonday.getDate() + (week - 1) * 7 + (weekdayNumber - 1))
@@ -175,6 +179,8 @@ export function getProgramLifecycleStatus(
 
   const ref = new Date(referenceDate)
   ref.setHours(0, 0, 0, 0)
+
+  if (plan.start_date && ref < parseDateOnly(plan.start_date)) return "not_started"
 
   const expectedEnd = expectedProgramEndDate(plan)
   let end: Date | null = plan.end_date ? parseDateOnly(plan.end_date) : null

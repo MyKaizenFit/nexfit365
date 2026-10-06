@@ -167,15 +167,21 @@ class WorkoutProgramViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):
             return WorkoutProgram.objects.none()
+        from django.db.models import Count
         from .query_utils import program_days_prefetch
 
         user = self.request.user
         # Mostrar programas del sistema y los propios del usuario
-        return WorkoutProgram.objects.filter(
+        queryset = WorkoutProgram.objects.filter(
             is_active=True
         ).filter(
             models.Q(is_system=True) | models.Q(user=user)
-        ).prefetch_related(program_days_prefetch())
+        )
+        if self.action == 'list':
+            # El serializer de listado solo necesita el contador; cargar todos
+            # los días, ejercicios y sustitutos hacía pesado el primer paint.
+            return queryset.annotate(days_count_total=Count('days', distinct=True))
+        return queryset.prefetch_related(program_days_prefetch())
     
     def get_serializer_class(self):
         if self.action == 'list':
@@ -232,6 +238,7 @@ class WorkoutProgramViewSet(viewsets.ModelViewSet):
             reset_weekly_workout_plan_if_needed,
             rollover_program_cycle_if_completed,
         )
+        from .program_lifecycle import get_program_lifecycle_status
         from .query_utils import parse_week_param, resolve_program_current_week
 
         try:
@@ -253,18 +260,23 @@ class WorkoutProgramViewSet(viewsets.ModelViewSet):
 
             program = WorkoutProgram.objects.filter(
                 user=request.user, is_active=True
-            ).order_by('-updated_at', '-created_at').first()
+            ).order_by('-updated_at', '-created_at').prefetch_related('days').first()
 
             if program:
                 # Inicializar start_date si falta, sincronizar duración y reiniciar ciclo si terminó.
                 program = reset_weekly_workout_plan_if_needed(program)
                 program = rollover_program_cycle_if_completed(program)
-                loaded_week = week_param or resolve_program_current_week(program)
+                current_week = resolve_program_current_week(program)
+                program_status = get_program_lifecycle_status(program)
+                days_count = len(program.days.all())
+                loaded_week = week_param or current_week
                 program = prefetch_workout_program_with_days(program, week=loaded_week) or program
                 serializer = WorkoutProgramSerializer(program)
                 payload = dict(serializer.data)
                 payload['loaded_week'] = loaded_week
-                payload['days_count'] = WorkoutDay.objects.filter(program_id=program.pk).count()
+                payload['current_week'] = current_week
+                payload['program_status'] = program_status
+                payload['days_count'] = days_count
                 return Response({'program': payload})
             return Response({'program': None})
         except DatabaseError as exc:
@@ -427,7 +439,11 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):
             return WorkoutLog.objects.none()
-        qs = WorkoutLog.objects.filter(user=self.request.user)
+        qs = WorkoutLog.objects.filter(user=self.request.user).select_related(
+            'workout_day'
+        ).prefetch_related(
+            'log_exercises__sets'
+        )
         if self.request.query_params.get('include_drafts') not in {'1', 'true', 'True', 'yes'}:
             qs = qs.filter(completed=True)
         return qs

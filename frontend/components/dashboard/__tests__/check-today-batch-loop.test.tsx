@@ -4,6 +4,7 @@ import { WorkoutDashboardEnhanced } from '../workout-dashboard-enhanced'
 import { useWorkouts } from '@/hooks/use-workouts'
 
 const mockCheckTodayUrls: string[] = []
+let mockProgramOverride: Record<string, unknown> | null = null
 const mockTodayDay = {
   id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
   day_number: 1,
@@ -45,13 +46,15 @@ jest.mock('@/lib/api', () => ({
         ok: true,
         status: 200,
         json: async () => ({
-          program: {
+          program: mockProgramOverride ?? {
             id: 'prog-1',
             name: 'Plan Nuria',
             duration_weeks: 8,
             days_per_week: 2,
             start_date: '2026-08-31',
             loaded_week: 4,
+            current_week: 8,
+            program_status: 'active',
             days: [mockTodayDay],
           },
         }),
@@ -72,6 +75,7 @@ function checkTodayCount() {
 describe('check_today_batch', () => {
   beforeEach(() => {
     mockCheckTodayUrls.length = 0
+    mockProgramOverride = null
     const start = new Date('2026-08-31T00:00:00')
     const today = new Date()
     today.setHours(0, 0, 0, 0)
@@ -102,4 +106,31 @@ describe('check_today_batch', () => {
     expect(checkTodayCount()).toBe(afterLoad)
     expect(screen.getByText(/Plan Nuria/)).toBeInTheDocument()
   }, 15000)
+
+  it('respeta la semana y el estado canónicos del backend', async () => {
+    render(<WorkoutDashboardEnhanced />)
+    expect(await screen.findByText('Semana 8 de 8', {}, { timeout: 5000 })).toBeInTheDocument()
+    expect(screen.queryByText('Plan aún no iniciado')).not.toBeInTheDocument()
+  })
+
+  it('ACTIVE_PROGRAM_EMPTY_CURRENT_WEEK conserva semana y estado sin inventar rutinas', async () => {
+    mockProgramOverride = {
+      id: 'prog-empty-week',
+      name: 'Plan activo sin semana cargada',
+      duration_weeks: 12,
+      days_per_week: 3,
+      start_date: '2026-08-14',
+      current_week: 9,
+      loaded_week: 9,
+      program_status: 'active',
+      days: [],
+    }
+
+    render(<WorkoutDashboardEnhanced />)
+
+    expect(await screen.findByText('Semana 9 de 12', {}, { timeout: 5000 })).toBeInTheDocument()
+    expect(screen.queryByText('Plan aún no iniciado')).not.toBeInTheDocument()
+    expect(screen.getByText('Esta semana no contiene entrenamientos')).toBeInTheDocument()
+    expect(screen.getByText(/no hay rutinas cargadas para la semana 9/i)).toBeInTheDocument()
+  })
 })

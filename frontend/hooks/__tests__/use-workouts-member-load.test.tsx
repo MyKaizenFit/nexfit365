@@ -60,7 +60,9 @@ describe('useWorkouts member initial load', () => {
     await waitFor(() => expect(result.current.activeProgram?.id).toBe('8de5bdb6-f46d-499b-927c-eb13bc5f02ab'))
 
     expect(fetchedUrls.some((url) => url.includes('available_templates'))).toBe(false)
+    expect(fetchedUrls.some((url) => url.includes('exercises/'))).toBe(false)
     expect(fetchedUrls.some((url) => url.includes('my_active_program'))).toBe(true)
+    expect(fetchedUrls.filter((url) => url.includes('workout-logs/statistics')).length).toBe(1)
     expect(result.current.error).toBeNull()
   })
 

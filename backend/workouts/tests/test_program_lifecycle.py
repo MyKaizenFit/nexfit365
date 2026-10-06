@@ -215,6 +215,40 @@ def test_week_eight_stays_active_until_expected_end(user):
 
 
 @pytest.mark.django_db
+def test_week_progresses_in_seven_day_blocks_from_non_monday_start(user):
+    """14/08 + 53 días sigue en semana 8; no debe adelantarse al lunes."""
+    program = _multi_week_program(
+        user,
+        start=date(2026, 8, 14),
+        end=date(2026, 11, 6),
+        duration=12,
+        max_day=84,
+        name="Plan viernes 12 semanas",
+    )
+
+    assert program_week_for_date(program, date(2026, 8, 14)) == 1
+    assert program_week_for_date(program, date(2026, 8, 15)) == 1
+    assert program_week_for_date(program, date(2026, 8, 21)) == 2
+    assert program_week_for_date(program, date(2026, 10, 6)) == 8
+    assert get_program_lifecycle_status(program, date(2026, 10, 6)) == "active"
+
+
+@pytest.mark.django_db
+def test_plan_starting_tomorrow_is_not_started(user):
+    program = _multi_week_program(
+        user,
+        start=date(2026, 10, 8),
+        end=date(2026, 11, 5),
+        duration=4,
+        max_day=28,
+        name="Plan futuro",
+    )
+
+    assert program_week_for_date(program, date(2026, 10, 7)) == 0
+    assert get_program_lifecycle_status(program, date(2026, 10, 7)) == "not_started"
+
+
+@pytest.mark.django_db
 def test_genuine_completion_still_rolls_over_to_week_one(user):
     program = _multi_week_program(
         user,

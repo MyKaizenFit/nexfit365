@@ -1,9 +1,12 @@
 """Integridad y rendimiento: copia bulk, week-scope, mutation ligera, N+1 substitutes."""
+from datetime import date, datetime, timezone as dt_timezone
+
 import pytest
 from django.contrib.auth import get_user_model
 from django.db import connection, reset_queries, transaction
 from django.test.utils import CaptureQueriesContext, override_settings
 from rest_framework.test import APIClient
+from freezegun import freeze_time
 
 from accounts.services import copy_template_days_to_user_program
 from workouts.admin_serializers import (
@@ -373,6 +376,86 @@ def test_my_active_program_defaults_to_current_week(member_client, member, admin
     assert week2.data["program"]["loaded_week"] == 2
     for day in week2.data["program"]["days"]:
         assert 8 <= day["day_number"] <= 14
+
+
+@pytest.mark.django_db
+def test_my_active_program_uses_elapsed_week_and_exposes_canonical_status(
+    member_client, member, admin_user
+):
+    """Regresión producción: viernes 14/08 + 53 días = semana 8, no 9/1."""
+    program = WorkoutProgram.objects.create(
+        user=member,
+        created_by=admin_user,
+        name="Plan incidencia 12 semanas",
+        is_active=True,
+        duration_weeks=12,
+        days_per_week=3,
+        start_date=date(2026, 8, 14),
+        end_date=date(2026, 11, 6),
+    )
+    WorkoutDay.objects.create(
+        program=program,
+        name="Semana 8 lunes",
+        day_number=50,
+        day_of_week="monday",
+        order_index=50,
+    )
+
+    with freeze_time(datetime(2026, 10, 6, 10, 0, tzinfo=dt_timezone.utc)):
+        with CaptureQueriesContext(connection) as ctx:
+            response = member_client.get("/api/workout-programs/my_active_program/")
+
+    assert response.status_code == 200
+    payload = response.data["program"]
+    assert payload["current_week"] == 8
+    assert payload["loaded_week"] == 8
+    assert payload["program_status"] == "active"
+    assert [day["day_number"] for day in payload["days"]] == [50]
+    unscoped_day_reads = [
+        query["sql"]
+        for query in ctx.captured_queries
+        if 'FROM "workouts_workoutday"' in query["sql"]
+        and '"workouts_workoutday"."day_number" IN' not in query["sql"]
+        and 'COUNT(' not in query["sql"]
+    ]
+    assert len(unscoped_day_reads) == 1, unscoped_day_reads
+    assert len(ctx) <= 12
+
+    with freeze_time(datetime(2026, 10, 6, 10, 0, tzinfo=dt_timezone.utc)):
+        override = member_client.get("/api/workout-programs/my_active_program/?week=1")
+    override_payload = override.data["program"]
+    assert override_payload["current_week"] == 8
+    assert override_payload["loaded_week"] == 1
+    assert override_payload["program_status"] == "active"
+
+    with freeze_time(datetime(2026, 10, 13, 10, 0, tzinfo=dt_timezone.utc)):
+        empty_week = member_client.get("/api/workout-programs/my_active_program/")
+    empty_payload = empty_week.data["program"]
+    assert empty_payload["current_week"] == 9
+    assert empty_payload["loaded_week"] == 9
+    assert empty_payload["program_status"] == "active"
+    assert empty_payload["days"] == []
+
+
+@pytest.mark.django_db
+@override_settings(DEBUG=True)
+def test_member_program_list_does_not_prefetch_deep_schedule(member_client, member):
+    program = WorkoutProgram.objects.create(
+        user=member,
+        name="Listado ligero",
+        is_active=True,
+        duration_weeks=12,
+    )
+    WorkoutDay.objects.create(program=program, name="Día 1", day_number=1, order_index=1)
+
+    with CaptureQueriesContext(connection) as ctx:
+        response = member_client.get("/api/workout-programs/")
+
+    assert response.status_code == 200
+    assert len(ctx) <= 8
+    sql_blob = " ".join(query["sql"].lower() for query in ctx.captured_queries)
+    assert "workouts_workoutdayexercise" not in sql_blob
+    assert "workouts_exercisesubstitution" not in sql_blob
 
 
 @pytest.mark.django_db

@@ -51,8 +51,6 @@ def parse_week_param(raw) -> int | None:
 
 def resolve_program_current_week(program, *, reference_date=None) -> int:
     """Semana del programa relativa a start_date (1-indexed), acotada a duration_weeks."""
-    from datetime import timedelta
-
     from django.utils import timezone
 
     today = reference_date or timezone.localdate()
@@ -61,9 +59,10 @@ def resolve_program_current_week(program, *, reference_date=None) -> int:
     if not start:
         return 1
 
-    start_monday = start - timedelta(days=start.weekday())
-    today_monday = today - timedelta(days=today.weekday())
-    weeks_elapsed = (today_monday - start_monday).days // 7
+    # La semana del plan avanza cada siete días desde su start_date. Alinear
+    # ambos extremos al lunes adelanta una semana los planes que empiezan de
+    # martes a domingo (p. ej. viernes + 53 días se convertía en semana 9).
+    weeks_elapsed = (today - start).days // 7
     if weeks_elapsed < 0:
         return 1
     week = weeks_elapsed + 1

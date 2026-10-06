@@ -70,9 +70,7 @@ def program_week_for_date(program, reference: date | None = None) -> int:
     if not program.start_date:
         return 1
 
-    start_monday = _monday_of(program.start_date)
-    ref_monday = _monday_of(reference)
-    weeks_elapsed = (ref_monday - start_monday).days // 7
+    weeks_elapsed = (reference - program.start_date).days // 7
     if weeks_elapsed < 0:
         return 0
 
@@ -87,6 +85,9 @@ def get_program_lifecycle_status(program, reference: date | None = None) -> Prog
     reference = _business_date(reference)
     days = list(program.days.all()) if hasattr(program, "days") else []
     if not days:
+        return "not_started"
+
+    if program.start_date and reference < program.start_date:
         return "not_started"
 
     expected_end = expected_program_end_date(program)

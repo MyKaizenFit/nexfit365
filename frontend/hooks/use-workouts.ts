@@ -87,6 +87,8 @@ export interface WorkoutProgram {
   is_active: boolean
   days: WorkoutDay[]
   loaded_week?: number
+  current_week?: number
+  program_status?: 'not_started' | 'active' | 'completed'
   days_count?: number
   total_days?: number
 }
@@ -191,12 +193,8 @@ export function useWorkouts() {
       setError(null)
       setHasAuthError(false)
 
-      // Camino crítico para pintar Entrenamientos: programa(s) + activo.
-      // available_templates no se usa en la UI de miembro y saturaba workers (prefetch profundo).
-      await fetchWorkoutPrograms()
-      await new Promise(resolve => setTimeout(resolve, 200))
-
-      await fetchActiveProgram()
+      // Camino crítico: ambas lecturas son independientes.
+      await Promise.all([fetchWorkoutPrograms(), fetchActiveProgram()])
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Error al cargar datos de entrenamiento'
       setError(message)
@@ -210,9 +208,9 @@ export function useWorkouts() {
       return
     }
     try {
-      await fetchExercises()
-      await new Promise(resolve => setTimeout(resolve, 200))
-      await fetchWorkoutLogs()
+      // El dashboard ya recibe los ejercicios de la semana dentro del programa.
+      // El catálogo completo (cientos de KB) queda disponible bajo demanda.
+      await Promise.all([fetchWorkoutLogs(), fetchWorkoutStatistics()])
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Error al cargar datos auxiliares de entrenamiento'
       if (isAuthSessionError(message)) {
@@ -808,13 +806,6 @@ export function useWorkouts() {
       return null
     }
   }
-
-  // Cargar estadísticas cuando se cargan los datos
-  useEffect(() => {
-    if (isAuthenticated && workoutLogs.length >= 0) {
-      fetchWorkoutStatistics()
-    }
-  }, [isAuthenticated, workoutLogs.length])
 
   // Obtener progreso semanal (compatibilidad con código existente)
   const getWeeklyProgress = () => {
